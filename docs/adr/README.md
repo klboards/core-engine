@@ -20,6 +20,7 @@ ADR-0001 and ADR-0002 **ratify the already-settled first-order model** so the de
 | [0005](0005-offline-correctness-network-independent.md) | Offline correctness is network-independent | Determination 3 |
 | [0006](0006-refraction-and-horizon-optics-seam.md) | Refraction & horizon optics: physics in F1, conventions as parameters | Seam 1 |
 | [0007](0007-civil-time-dst-edge-axiom.md) | Civil time / DST: edge axiom outside the core, versioned | Seam 2 |
+| [0008](0008-engine-posture-and-sourcing.md) | Engine posture: own primary behind a pluggable interface; zmanim-core as oracle + optional alternative | Posture (refines 0003) |
 
 ## Ratified decisions handoff (decision + rationale, for Claude Code)
 

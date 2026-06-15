@@ -36,6 +36,7 @@ The research also surfaces a concrete trap. In Israel, **B.A. Timing Solutions L
 
 - **LGPL-2.1 obligations** (KosherJava) must be honored — the LGPL component must remain replaceable/relinkable, with library and license notices preserved. Track in licensing/compliance. Hebcal web-API *content* is CC-BY, but we are adopting the embeddable `@hebcal/core`-class *code*, so the relevant obligation is the code license, not the API content terms.
 - The **neutral oracle is a test-time dependency only** — never a runtime dependency. A fixture harness compares F1/F2/F3 instants to the oracle to the second.
+- **`zmanim-core` (Rust KosherJava-conformance port) is adopted as an *additional* build/test cross-check oracle** alongside Wolfram/observatory — **build/test only, never shipped to the device.** (Its other, distinct role as an optional customer-selectable *alternative engine* behind the pluggable interface is governed by ADR-0008, not this validation use.)
 - **Port/platform selection is deferred** (stack-agnostic). Note one concrete constraint from the research: KosherJava's official port set does **not** include Swift; an Apple-platform target would use KosherCocoa (Obj-C) or a community Swift port. This is recorded as a constraint, not a platform decision.
 - Couples tightly to ADR-0005 (offline) and ADR-0001 (the library *is* the F1/F2/F3 implementation).
 

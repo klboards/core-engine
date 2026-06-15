@@ -17,16 +17,27 @@ meta-repo at `engine/core-engine`.
 
 - **Fully offline** through a multi-day chag + Shabbat; the network is never on the
   correctness path (`docs/adr/0005`).
-- **Embeddable open-license library** (KosherJava-class / Hebcal-class *code*), **no
-  competitor engine** (`docs/adr/0003`).
+- **Own oracle-validated engine** behind a **pluggable engine interface**; **no external
+  engine on the correctness path** (`docs/adr/0003`, `0008`). `zmanim-core` is a build/test
+  oracle + optional customer-selectable alternative — **not** the foundation.
 - **Oracle-validated** (Wolfram / observatory) as a test fixture, never a runtime dependency.
 - Civil time / DST is an **edge axiom outside the core** (`docs/adr/0007`).
 
+## Engine posture (ADR-0008)
+
+We **build our own** primary engine (owned, oracle-validated, shipped), exposed behind a
+**pluggable engine interface**. `zmanim-core` plays two distinct roles — a build/test
+validation oracle (never ships) and an optional customer-selectable alternative engine behind
+the interface. Relinkability (org/0006) is satisfied by this architecture, not a license claim.
+**Engine-selection, once ≥2 engines ship, is a calendar-correctness-bearing knob** (handed to
+the parameter-vector schema, `docs/adr/0002`) — the no-drift guarantee holds only within one
+engine choice.
+
 ## Stack
 
-**TODO** — undecided (klboards open decision #8). Constraint: the chosen language must have a
-KosherJava-class port (Apple ⇒ KosherCocoa / community Swift port). Do not assume a language,
-framework, or build tool; mark unknowns TODO.
+**TODO** — the engine's implementation **language is undecided** (klboards open decision #8) and
+is **not** picked by ADR-0008. Design intent: a **freestanding / no-GC** engine (org/0006
+runtime **Profile A**). Do not assume a language, framework, or build tool; mark unknowns TODO.
 
 ## Conventions
 
