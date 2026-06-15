@@ -1,0 +1,16 @@
+# Stack-agnostic until the stack is chosen (open #8). Add stack-specific
+# ignores here only when this repo's stack is decided.
+
+# Local Claude config (personal, per-machine)
+.claude/settings.local.json
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*~
