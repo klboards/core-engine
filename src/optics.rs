@@ -14,6 +14,7 @@ const DEG: f64 = core::f64::consts::PI / 180.0;
 /// `None` = airless geometry (the depression-shita default, /0013).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RefractionModel {
+    /// No refraction (airless geometry) — the depression-shita default.
     None,
     /// Saemundsson (1986): refraction as a function of **true/geometric** altitude — no iteration.
     Saemundsson,

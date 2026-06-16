@@ -21,8 +21,11 @@ pub enum Stringency {
 /// (a closing zman rounds earlier to be stringent; an opening zman rounds later).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ObligationSense {
+    /// Begins an obligation (stringent → round later).
     Opens,
+    /// Ends an obligation (stringent → round earlier).
     Closes,
+    /// Neither.
     Neutral,
 }
 

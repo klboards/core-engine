@@ -14,13 +14,13 @@
 //! civil-time / wall-clock / civil-day labelling is an EDGE concern (harness), never here.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(unsafe_code)]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
+pub mod events;
 pub mod ffi;
+pub mod geometry;
 pub mod optics;
 pub mod params;
-pub mod reads;
-pub mod solar;
 pub mod time;
 pub mod units;
 
@@ -36,6 +36,7 @@ fn panic_handler(_: &core::panic::PanicInfo) -> ! {
 /// (ADR core-domain/0001). This is the only kind of value F1 emits.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct AbsoluteInstant {
+    /// Nanoseconds since the Unix epoch, UTC.
     pub unix_nanos: i64,
 }
 
@@ -60,7 +61,10 @@ pub type ZmanResult = Option<AbsoluteInstant>;
 /// A site: the natural givens of ADR core-domain/0001 (φ, λ, h). Timezone-free; λ east-positive.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Site {
+    /// Latitude, degrees (north-positive).
     pub lat_deg: f64,
+    /// Longitude, degrees (east-positive).
     pub lon_deg: f64,
+    /// Elevation above the reference ellipsoid, metres.
     pub elev_m: f64,
 }

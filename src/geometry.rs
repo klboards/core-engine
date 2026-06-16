@@ -40,8 +40,8 @@ pub fn solar_altitude_deg(jd: f64, site: &Site) -> f64 {
     let jd_tt = jd + DELTA_T_SECS / 86_400.0;
     let t = (jd_tt - 2_451_545.0) / 36_525.0; // Julian centuries (TT) since J2000.0
 
-    let l0 = norm360(280.46646 + t * (36_000.76983 + 0.0003032 * t)); // geom mean longitude
-    let m = 357.52911 + t * (35_999.05029 - 0.0001537 * t); // geom mean anomaly (deg)
+    let l0 = norm360(280.46646 + t * (36000.76983 + 0.0003032 * t)); // geom mean longitude
+    let m = 357.52911 + t * (35999.05029 - 0.0001537 * t); // geom mean anomaly (deg)
     let mr = m * DEG;
 
     // Sun's equation of center

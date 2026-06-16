@@ -1,9 +1,9 @@
 //! Halachic-convention knob tests (ADR core-domain/0002/0006/0013): the conventions are
 //! parameters and the core honors them. Differential assertions (not oracle values).
 
+use core_engine::events::{read_jd, Bound, Direction, ReadSpec};
 use core_engine::optics::{HorizonMode, RefractionModel};
 use core_engine::params::Optics;
-use core_engine::reads::{read_jd, Bound, Direction, ReadSpec};
 use core_engine::{time, Site};
 
 fn jeru() -> Site {

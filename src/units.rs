@@ -13,6 +13,7 @@ pub struct GeometricAltitude(pub f64);
 pub struct ApparentAltitude(pub f64);
 
 impl GeometricAltitude {
+    /// The geometric altitude in degrees.
     #[inline]
     pub fn deg(self) -> f64 {
         self.0
@@ -20,6 +21,7 @@ impl GeometricAltitude {
 }
 
 impl ApparentAltitude {
+    /// The apparent altitude in degrees.
     #[inline]
     pub fn deg(self) -> f64 {
         self.0

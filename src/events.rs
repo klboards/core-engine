@@ -9,15 +9,18 @@
 //! "GRA vs Magen Avraham" and "day definition" are settings of the `proportional_day_bounds` knob
 //! (the `start`/`end` bounds), NOT code branches.
 
+use crate::geometry::solar_altitude_deg;
 use crate::optics::{horizon_apparent_target_deg, RefractionModel};
 use crate::params::Optics;
-use crate::solar::solar_altitude_deg;
 use crate::units::GeometricAltitude;
 use crate::{AbsoluteInstant, Site, ZmanResult};
 
+/// Sense of an altitude crossing.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Direction {
+    /// Sun ascending (morning).
     Rising,
+    /// Sun descending (evening).
     Setting,
 }
 
@@ -25,24 +28,43 @@ pub enum Direction {
 /// knob. GRA = (Netz, Shkia); MGA = (depression −16.1 rising, depression −16.1 setting).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Bound {
+    /// Sunrise (apparent horizon crossing).
     Netz,
+    /// Sunset (apparent horizon crossing).
     Shkia,
-    Depression { angle_deg: f64, dir: Direction },
+    /// A depression-angle bound (e.g. MGA's alot/tzeit at −16.1°).
+    Depression {
+        /// Depression below the horizon, degrees (magnitude).
+        angle_deg: f64,
+        /// Morning (rising) or evening (setting).
+        dir: Direction,
+    },
 }
 
 /// A typed read off the altitude curve.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ReadSpec {
     /// Geometric depression (refraction per `Optics::depression_refraction`, default off).
-    DepressionAngle { angle_deg: f64, dir: Direction },
+    DepressionAngle {
+        /// Depression below the horizon, degrees (magnitude).
+        angle_deg: f64,
+        /// Morning (rising) or evening (setting).
+        dir: Direction,
+    },
     /// Apparent sunrise/sunset: apparent sun-centre at −(semidiameter + dip) (ADR core-domain/0013).
-    HorizonCrossing { dir: Direction },
+    HorizonCrossing {
+        /// Morning (rising = netz) or evening (setting = shkia).
+        dir: Direction,
+    },
     /// Chatzot = midpoint(netz, shkia).
     ExtremumMidpoint,
     /// Proportional: `start + fraction·(end − start)`, bounds set by the knob.
     Proportional {
+        /// Fraction of the seasonal-hour day (e.g. 0.25 = 3 proportional hours).
         fraction: f64,
+        /// Start bound of the proportional day.
         start: Bound,
+        /// End bound of the proportional day.
         end: Bound,
     },
 }

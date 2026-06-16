@@ -5,8 +5,8 @@
 //! (This C-ABI is also the shape the device/FFI relinkability boundary of ADR core-domain/0003
 //! will take; here it exists for the determinism harness.)
 
+use crate::events::{read_instant, Bound, Direction, ReadSpec};
 use crate::params::Optics;
-use crate::reads::{read_instant, Bound, Direction, ReadSpec};
 use crate::Site;
 
 /// Does-not-occur sentinel for the C-ABI (Option can't cross the boundary).
