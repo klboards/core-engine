@@ -51,6 +51,41 @@ pub enum KiddushLevanaEnd {
     FifteenDays,
 }
 
+/// Israel vs diaspora (`locale.realm`, spec §1.D / ADR core-domain/0001). A **provisioned input**,
+/// never derived by the core: the geographic Eretz-Yisrael boundary (Bamidbar 34; contested edges
+/// such as Eilat / Aleppo) is set at provisioning. Gates Yom Tov Sheni (coupling #2) and the
+/// tal-u-matar basis (coupling #4). Halachic/locale knob — the core resolves none; no default.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Realm {
+    /// Eretz Yisrael — one festival day; tal-u-matar fixed at 7 Cheshvan.
+    EretzYisrael,
+    /// Diaspora — Yom Tov Sheni shel Galuyot; tal-u-matar = 60th day after Tekufat Tishrei.
+    Diaspora,
+}
+
+/// Which rule starts *tal u-matar* / *she'elat geshamim* (`tal_umatar.basis`, spec §1.D). Halachic
+/// knob — the core resolves none; no default (realm normally selects it: EY → `Fixed7Cheshvan`,
+/// diaspora → `TekufaBased`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TalUmatarBasis {
+    /// 60th day after (the chosen method's) Tekufat Tishrei — the diaspora rule.
+    TekufaBased,
+    /// Fixed 7 Cheshvan — the Eretz-Yisrael rule.
+    Fixed7Cheshvan,
+}
+
+/// Which arithmetic tekufa construct to use (`tekufa.method`, spec §1.D). **Finding (ADR
+/// core-domain/0016):** both values are pure *calendar arithmetic* (F3-class), NOT astronomy — so
+/// the spec's "F1class.tekufa" label is imprecise; only a future true-astronomical-equinox method
+/// would be F1-class. Halachic knob — the core resolves none; no default.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TekufaMethod {
+    /// Shmuel: solar year = 365¼ d exactly (Julian); season = 91d 7h 30m. The tal-u-matar default.
+    Shmuel,
+    /// Rav Ada bar Ahava: solar year = the 19-year Metonic mean (235 synodic months / 19).
+    RavAda,
+}
+
 /// Whether a zman *opens* or *closes* an obligation — drives stringent rounding direction
 /// (a closing zman rounds earlier to be stringent; an opening zman rounds later).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

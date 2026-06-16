@@ -26,3 +26,14 @@ molad_ch,1/7,,,-35599228716,BaHaRaD anchor (= -1373427*25920 - 876); 5h 204ch Mo
 molad_ch,5786/7,,,19168267867,molad Tishrei 5786 (= BaHaRaD + months*765433); RH 5786 = Tue 2025-09-23 (Hebcal)
 molad_ch,5786/1,,,19172860465,molad Nisan 5786
 molad_ch,5787/7,,,19177453063,molad Tishrei 5787 (leap year)
+daytype,5787/7/16,israel,,chol_hamoed,Sukkot day 2 = CHM in Eretz Yisrael (MyZmanim Jerusalem 2026-09-27 IsCholHamoed)
+daytype,5787/7/16,diaspora,,yom_tov,Sukkot day 2 = Yom Tov Sheni in diaspora (MyZmanim Lawrence 2026-09-27 IsYomTov) — realm divergence
+daytype,5787/7/10,israel,,yom_tov|fast_day,Yom Kippur (Mon 2026-09-21); melacha-forbidden + fast
+daytype,5787/7/30,israel,,rosh_chodesh,30 Tishrei (Sun 2026-10-11) = first day of 2-day Rosh Chodesh Cheshvan
+daytype,5787/8/1,israel,,rosh_chodesh,1 Cheshvan (Mon 2026-10-12)
+daytype,5787/9/24,diaspora,,erev,24 Kislev = Fri 2026-12-04 (erev Shabbat; MyZmanim IsErevShabbos)
+daytype,5787/9/25,diaspora,,shabbat,25 Kislev = Sat 2026-12-05 (Shabbat Chanukah)
+daytype,5787/9/26,israel,,none,26 Kislev = Sun 2026-12-06 (Chanukah weekday; MyZmanim all flags false)
+weekday,2026-09-27,,,0,Sunday
+weekday,2026-12-04,,,5,Friday
+weekday,2026-12-05,,,6,Saturday

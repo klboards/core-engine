@@ -112,6 +112,31 @@ fn main() {
         ),
         (10, 0.0, 0.0, 0.0, 5786.0, 7.0, "molad_tishrei_5786"),
         (10, 0.0, 0.0, 0.0, 5787.0, 7.0, "molad_tishrei_5787"),
+        // Phase-3 couplings (ADR core-domain/0016): the tekufa UT projection (Shmuel + Rav Ada, both
+        // through the shared molad projection at different magnitudes), the day-roll float path
+        // (jd→RD floor + local-noon boundary + the cross-boundary comparison — incl. a far-longitude
+        // near-00:00-UT case for the off-by-one risk), and the night-predicate sun altitude.
+        (11, 0.0, 0.0, 0.0, 5787.0, 2.0, "tekufa_tishrei_5787_shmuel"),
+        (12, 0.0, 0.0, 0.0, 5787.0, 2.0, "tekufa_tishrei_5787_ravada"),
+        (13, 31.778, 35.2354, 754.0, 2_460_756.2, 0.0, "jeru_dayroll"),
+        (
+            13,
+            1.35,
+            172.98,
+            0.0,
+            2_460_756.49,
+            0.0,
+            "kiribati_dayroll_near_utc_midnight",
+        ),
+        (
+            14,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_755.208_333,
+            0.0,
+            "jeru_sun_alt",
+        ),
     ];
     for &(kind, lat, lon, elev, ref_jd, angle, label) in rows {
         let nanos = probe_zman_nanos(kind, lat, lon, elev, ref_jd, angle);

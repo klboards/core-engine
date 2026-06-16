@@ -5,12 +5,12 @@
 //! Run with output: `cargo test --test calendar -- --nocapture`.
 
 use core_engine::calendar::{
-    festival_date, fixed_from_gregorian, gregorian_from_fixed, hebrew_from_fixed,
-    hebrew_year_length, is_hebrew_leap_year, molad_chalakim, molad_civil, molad_instant, yahrzeit,
-    Festival, HebrewDate, RataDie, CHALAKIM_PER_MONTH,
+    classify_day, festival_date, fixed_from_gregorian, gregorian_from_fixed, hebrew_from_fixed,
+    hebrew_year_length, is_hebrew_leap_year, molad_chalakim, molad_civil, molad_instant,
+    weekday_from_fixed, yahrzeit, DayClass, Festival, HebrewDate, RataDie, CHALAKIM_PER_MONTH,
 };
 use core_engine::kiddush_levana::kiddush_levana_window;
-use core_engine::params::{AdarAnniversaryRule, KiddushLevanaEnd, KiddushLevanaStart};
+use core_engine::params::{AdarAnniversaryRule, KiddushLevanaEnd, KiddushLevanaStart, Realm};
 
 const FIXTURE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -61,6 +61,40 @@ fn parse_ym(s: &str) -> (i32, u8) {
     let p: Vec<&str> = s.split('/').collect();
     (p[0].parse().unwrap(), p[1].parse().unwrap())
 }
+fn realm(s: &str) -> Realm {
+    match s {
+        "israel" => Realm::EretzYisrael,
+        "diaspora" => Realm::Diaspora,
+        _ => panic!("unknown realm {s}"),
+    }
+}
+/// Canonical flag string for a [`DayClass`] (fixed order), or `none` if no flags hold.
+fn fmt_dayclass(c: DayClass) -> String {
+    let mut p: Vec<&str> = Vec::new();
+    if c.shabbat {
+        p.push("shabbat");
+    }
+    if c.yom_tov {
+        p.push("yom_tov");
+    }
+    if c.chol_hamoed {
+        p.push("chol_hamoed");
+    }
+    if c.erev {
+        p.push("erev");
+    }
+    if c.rosh_chodesh {
+        p.push("rosh_chodesh");
+    }
+    if c.fast_day {
+        p.push("fast_day");
+    }
+    if p.is_empty() {
+        "none".to_string()
+    } else {
+        p.join("|")
+    }
+}
 
 #[test]
 fn f3_calendar_vectors() {
@@ -89,6 +123,14 @@ fn f3_calendar_vectors() {
             "molad_ch" => {
                 let (y, m) = parse_ym(a);
                 format!("{}", molad_chalakim(y, m))
+            }
+            // Coupling #2 (ADR core-domain/0016): day-type classification + weekday. Day-type expected
+            // values are sourced from MyZmanim/Hebcal (independent), incl. the Yom-Tov-Sheni realm
+            // divergence; weekdays are externally anchored (MyZmanim). Exact comparison.
+            "daytype" => fmt_dayclass(classify_day(parse_heb(a), realm(b))),
+            "weekday" => {
+                let (y, m, d) = parse_greg(a);
+                format!("{}", weekday_from_fixed(fixed_from_gregorian(y, m, d)))
             }
             _ => "UNKNOWN-KIND".to_string(),
         };

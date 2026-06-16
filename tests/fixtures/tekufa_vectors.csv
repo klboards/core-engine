@@ -1,0 +1,11 @@
+kind,a,b,c,expected,notes
+tekufa_greg,5787,Tishrei,shmuel,2026-10-07,Tekufat Tishrei (Shmuel) ≈ Oct 7 (RA/Lookstein/Shulman); HY 5787 rem-3 = 3pm
+tekufa_hm,5787,Tishrei,shmuel,15:00,exact 3pm mean time (3am/9am/3pm/9pm 4-cycle; rem-3)
+tekufa_greg,5786,Tishrei,shmuel,2025-10-07,HY 5786 rem-2 = 9am
+tekufa_hm,5786,Tishrei,shmuel,09:00,cross-check Birkat-Hachama-2009 anchor (HY 5770 ≈ Oct 7 9am)
+tekufa_greg,5788,Tishrei,shmuel,2027-10-07,HY 5788 rem-0 = 9pm (year before civil leap 2028)
+tekufa_hm,5788,Tishrei,shmuel,21:00,9pm — the after-nightfall case that pushes tal-u-matar to Dec 6
+talumatar,5786,tekufabased,shmuel,2025-12-05,60th day after Tekufat Tishrei; recite eve Dec 4 2025 (Belaaz-confirmed)
+talumatar,5787,tekufabased,shmuel,2026-12-05,60th day; recite eve Dec 4 2026 (standard year; Lookstein/RA)
+talumatar,5788,tekufabased,shmuel,2027-12-06,60th day; recite eve Dec 5 (6pm-roll: tekufa after nightfall)
+talumatar,5787,fixed7cheshvan,shmuel,2026-10-18,7 Cheshvan (Eretz Yisrael); RH 5787 Sep 12 + 36 days

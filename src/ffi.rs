@@ -5,13 +5,17 @@
 //! (This C-ABI is also the shape the device/FFI relinkability boundary of ADR core-domain/0003
 //! will take; here it exists for the determinism harness.)
 
-use crate::calendar::molad_instant;
-use crate::events::{moon_rise_set, read_instant, Bound, Direction, ReadSpec};
+use crate::calendar::{fixed_from_hebrew, molad_instant};
+use crate::couplings::{hebrew_date_at_instant, DayRoll, DEFAULT_DAY_BOUNDARY};
+use crate::events::{
+    moon_rise_set, read_instant, sun_effective_alt_deg, Bound, Direction, ReadSpec,
+};
 use crate::lunar::moon_altitude_deg;
 use crate::optics::RefractionModel;
-use crate::params::Optics;
+use crate::params::{Optics, TekufaMethod};
+use crate::tekufa::{tekufa_instant, Season};
 use crate::units::GeometricAltitude;
-use crate::Site;
+use crate::{AbsoluteInstant, Site};
 
 /// Does-not-occur sentinel for the C-ABI (Option can't cross the boundary).
 pub const DOES_NOT_OCCUR: i64 = i64::MIN;
@@ -19,7 +23,12 @@ pub const DOES_NOT_OCCUR: i64 = i64::MIN;
 /// `kind`: 0 depression-rising · 1 depression-setting · 2 netz · 3 shkia · 4 chatzot ·
 /// 5 sof-zman-shma GRA · 6 sof-zman-shma MGA(−16.1) · **7 moonrise · 8 moonset** (F2; `ref_jd` =
 /// local-midnight day-start) · **9 moon apparent altitude** (F2; returns `round(deg·1e9)`) ·
-/// **10 molad instant** (F3; `ref_jd`=year, `angle`=month). `angle` used by kinds 0/1/10.
+/// **10 molad instant** (F3; `ref_jd`=year, `angle`=month). Phase-3 couplings (ADR core-domain/0016):
+/// **11 tekufa instant Shmuel · 12 tekufa instant Rav Ada** (`ref_jd`=Hebrew year, `angle`=season
+/// ordinal 0 Nisan/1 Tammuz/2 Tishrei/3 Tevet) · **13 day-roll resolved RD** (`ref_jd`=JD of the
+/// instant; returns the rolled Hebrew Rata Die, or sentinel if the boundary does-not-occur) ·
+/// **14 sun effective altitude** (the night predicate; returns `round(deg·1e9)`). `angle` used by
+/// kinds 0/1/10/11/12.
 // The crate denies unsafe_code; this single C-ABI export (the determinism-harness / future
 // ADR-0003 relinkability boundary) is the one justified exception.
 #[allow(unsafe_code)]
@@ -57,6 +66,32 @@ pub extern "C" fn probe_zman_nanos(
             return libm::round(app * 1.0e9) as i64;
         }
         10 => return molad_instant(ref_jd as i32, angle_deg as u8).unix_nanos,
+        11 | 12 => {
+            let season = match angle_deg as i32 {
+                0 => Season::Nisan,
+                1 => Season::Tammuz,
+                2 => Season::Tishrei,
+                _ => Season::Tevet,
+            };
+            let method = if kind == 11 {
+                TekufaMethod::Shmuel
+            } else {
+                TekufaMethod::RavAda
+            };
+            return tekufa_instant(ref_jd as i32, season, method).unix_nanos;
+        }
+        13 => {
+            let t = AbsoluteInstant::from_julian_day(ref_jd);
+            return match hebrew_date_at_instant(t, &site, DEFAULT_DAY_BOUNDARY, &Optics::default())
+            {
+                DayRoll::Resolved(d) => fixed_from_hebrew(d).0,
+                DayRoll::BoundaryDoesNotOccur => DOES_NOT_OCCUR,
+            };
+        }
+        14 => {
+            return libm::round(sun_effective_alt_deg(ref_jd, &site, &Optics::default()) * 1.0e9)
+                as i64
+        }
         _ => {}
     }
     let spec = match kind {

@@ -6,7 +6,7 @@
 //! Adar=12 (common); Adar I=12, Adar II=13 (leap) — matching Wolfram + D–R.
 //! Validated against Wolfram "Jewish" calendar + Hebcal cross-check.
 
-use crate::params::AdarAnniversaryRule;
+use crate::params::{AdarAnniversaryRule, Realm};
 use crate::AbsoluteInstant;
 
 /// Rata Die: integer day number; RD 1 = proleptic-Gregorian 0001-01-01. The conversion pivot.
@@ -269,6 +269,166 @@ pub fn festival_date(year: i32, fest: Festival) -> RataDie {
     }
 }
 
+// ── Day-type classification (coupling #2, ADR core-domain/0016). Pure F3 integer arithmetic: a
+// Hebrew date + realm → a `DayClass` of co-holding flags. The token *selects* which solar reads
+// matter (candle-lighting on erev, fast start/end on fasts) — that selection is an edge concern;
+// the core only emits the token. Realm gates Yom Tov Sheni (the diaspora second festival day).
+
+/// A single dominant day-kind token (coupling #2), by the precedence
+/// `YomTov > Shabbat > CholHaMoed > FastDay > RoshChodesh > Erev > Weekday`. Lossy by design —
+/// [`DayClass`] is the full answer (a day can be e.g. both Shabbat and Rosh Chodesh).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DayKind {
+    /// Ordinary weekday.
+    Weekday,
+    /// Shabbat.
+    Shabbat,
+    /// A melacha-forbidden festival day (incl. the diaspora second day, and Yom Kippur).
+    YomTov,
+    /// Chol HaMoed (intermediate days of Pesach / Sukkot).
+    CholHaMoed,
+    /// Erev Shabbat or Erev Yom Tov (the day whose evening enters a Shabbat/Yom-Tov).
+    Erev,
+    /// Rosh Chodesh.
+    RoshChodesh,
+    /// A public fast day.
+    FastDay,
+}
+
+/// The full classification of one Hebrew day as a set of **co-holding** flags (a day can be both
+/// Shabbat and Rosh Chodesh, or Yom Kippur which is both `yom_tov` and `fast_day`). Realm-gated.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct DayClass {
+    /// Shabbat (Saturday by the Hebrew day).
+    pub shabbat: bool,
+    /// A melacha-forbidden festival day (incl. diaspora Yom Tov Sheni, and Yom Kippur).
+    pub yom_tov: bool,
+    /// Chol HaMoed.
+    pub chol_hamoed: bool,
+    /// Erev Shabbat / Erev Yom Tov (candle-lighting relevance).
+    pub erev: bool,
+    /// Rosh Chodesh.
+    pub rosh_chodesh: bool,
+    /// A public fast day (Gedaliah / 10 Tevet / Ta'anit Esther / 17 Tammuz / 9 Av / Yom Kippur),
+    /// with the standard Shabbat-deferral (nidcheh) applied.
+    pub fast_day: bool,
+}
+
+impl DayClass {
+    /// The dominant [`DayKind`] for display selection, by the documented precedence.
+    pub fn primary(self) -> DayKind {
+        if self.yom_tov {
+            DayKind::YomTov
+        } else if self.shabbat {
+            DayKind::Shabbat
+        } else if self.chol_hamoed {
+            DayKind::CholHaMoed
+        } else if self.fast_day {
+            DayKind::FastDay
+        } else if self.rosh_chodesh {
+            DayKind::RoshChodesh
+        } else if self.erev {
+            DayKind::Erev
+        } else {
+            DayKind::Weekday
+        }
+    }
+}
+
+/// Day-of-week from a Rata Die: 0 = Sunday … 6 = Saturday (RD 1 = 0001-01-01 = Monday).
+pub fn weekday_from_fixed(rd: RataDie) -> u8 {
+    amod(rd.0, 7) as u8
+}
+
+/// Is `(month, day)` a melacha-forbidden festival day under `realm`? (Months: Nisan=1 … Tishrei=7.)
+/// The diaspora-only second days (Yom Tov Sheni) are gated by `realm` — the realm parameter, not a
+/// per-stream code path (ADR core-domain/0002).
+fn is_yom_tov_md(month: u8, day: u8, realm: Realm) -> bool {
+    let diaspora = matches!(realm, Realm::Diaspora);
+    match (month, day) {
+        // Tishrei: RH (2 days everywhere), Yom Kippur, Sukkot day 1, Shmini Atzeret.
+        (7, 1) | (7, 2) | (7, 10) | (7, 15) | (7, 22) => true,
+        // Sukkot day 2 / Simchat Torah — diaspora only.
+        (7, 16) | (7, 23) => diaspora,
+        // Pesach day 1 & day 7; Shavuot day 1.
+        (1, 15) | (1, 21) | (3, 6) => true,
+        // Pesach day 2 & day 8; Shavuot day 2 — diaspora only.
+        (1, 16) | (1, 22) | (3, 7) => diaspora,
+        _ => false,
+    }
+}
+
+/// Is `(month, day)` Chol HaMoed under `diaspora`? Sukkot: EY 16–21, diaspora 17–21 (day 16 is
+/// Yom Tov Sheni). Pesach: EY 16–20, diaspora 17–20 (day 16 is Yom Tov Sheni; day 21 is the 7th-day
+/// Yom Tov, day 22 the 8th in the diaspora).
+fn is_chol_hamoed_md(month: u8, day: u8, diaspora: bool) -> bool {
+    let lo = if diaspora { 17 } else { 16 };
+    match month {
+        7 => day >= lo && day <= 21,
+        1 => day >= lo && day <= 20,
+        _ => false,
+    }
+}
+
+/// True if the day at `rd` is itself Shabbat or a Yom Tov (used to flag the *erev* before it).
+fn is_yt_or_shabbat(rd: RataDie, realm: Realm) -> bool {
+    if weekday_from_fixed(rd) == 6 {
+        return true;
+    }
+    let d = hebrew_from_fixed(rd);
+    is_yom_tov_md(d.month, d.day, realm)
+}
+
+/// Observed RD of a fast whose nominal date is `(base_month, base_day)`, applying the Shabbat
+/// deferral: most fasts push **forward** to Sunday; Ta'anit Esther pushes **back** to Thursday
+/// (`defer_forward = false`). A fast never falls on Shabbat (it is moved), so comparing against this
+/// observed RD yields the correct single day.
+fn fast_observed(year: i32, base_month: u8, base_day: u8, defer_forward: bool) -> RataDie {
+    let base = fixed_from_hebrew(HebrewDate {
+        year,
+        month: base_month,
+        day: base_day,
+    });
+    if weekday_from_fixed(base) == 6 {
+        RataDie(if defer_forward {
+            base.0 + 1
+        } else {
+            base.0 - 2
+        })
+    } else {
+        base
+    }
+}
+
+/// Classify the Hebrew day at `date` under `realm` (coupling #2). Pure integer arithmetic — no F1,
+/// no instant; the caller supplies the Hebrew date (already day-rolled by coupling #1). Realm gates
+/// Yom Tov Sheni and the Chol HaMoed boundary. Fasts carry the standard Shabbat-deferral.
+pub fn classify_day(date: HebrewDate, realm: Realm) -> DayClass {
+    let rd = fixed_from_hebrew(date);
+    let diaspora = matches!(realm, Realm::Diaspora);
+    let last_month = last_month_of_year(date.year);
+    DayClass {
+        shabbat: weekday_from_fixed(rd) == 6,
+        yom_tov: is_yom_tov_md(date.month, date.day, realm),
+        chol_hamoed: is_chol_hamoed_md(date.month, date.day, diaspora),
+        // Rosh Chodesh: the 1st of every month except Tishrei (whose 1st is Rosh Hashanah), plus the
+        // 30th of any 30-day month (the first of a two-day Rosh Chodesh).
+        rosh_chodesh: date.day == 30 || (date.day == 1 && date.month != 7),
+        erev: is_yt_or_shabbat(RataDie(rd.0 + 1), realm),
+        fast_day: (date.month == 7 && date.day == 10) // Yom Kippur
+            || rd == fast_observed(date.year, 7, 3, true) // Tzom Gedaliah (3 Tishrei → Sun)
+            || rd
+                == fixed_from_hebrew(HebrewDate {
+                    year: date.year,
+                    month: 10,
+                    day: 10,
+                }) // Asarah b'Tevet (never deferred)
+            || rd == fast_observed(date.year, last_month, 13, false) // Ta'anit Esther (→ Thu)
+            || rd == fast_observed(date.year, 4, 17, true) // 17 Tammuz (→ Sun)
+            || rd == fast_observed(date.year, 5, 9, true), // 9 Av (→ Sun)
+    }
+}
+
 // ── Molad (mean lunar conjunction) — the F3 deferral from ADR core-domain/0014, needed by F2's
 // Kiddush Levana. The molad is *calendar arithmetic* (the fixed mean conjunction), distinct from
 // the observed moon (F2 proper); it stays here in F3. Exact integer in the molad's own mean-time
@@ -321,14 +481,23 @@ pub fn molad_civil(year: i32, month: u8) -> (RataDie, u8, u8, u16) {
     (RataDie(rd), hour as u8, (rem / 18) as u8, (rem % 18) as u16)
 }
 
-/// Molad of `(year, month)` as an absolute UT instant (ADR core-domain/0001). The exact-integer
-/// chalakim are projected from the molad mean-time frame to UT via [`MOLAD_MERIDIAN_DEG_EAST`]
-/// (the one float/assumption step — see that constant's note).
-pub fn molad_instant(year: i32, month: u8) -> AbsoluteInstant {
-    let molad_days = molad_chalakim(year, month) as f64 / CHALAKIM_PER_DAY as f64;
+/// Project an exact-integer **chalakim-since-RD-0** count (molad mean-time frame) to an absolute UT
+/// instant via [`MOLAD_MERIDIAN_DEG_EAST`] — the one float/assumption step (see that constant's
+/// note). Shared by the molad ([`molad_instant`]) and the arithmetic tekufa (`tekufa`), so coupling
+/// #4 introduces **no new** geo assumption. Extracted from `molad_instant` byte-for-byte (the molad
+/// FP probe, kind 10, is the regression gate, ADR core-domain/0016).
+pub fn chalakim_to_instant(chalakim_since_rd0: i64) -> AbsoluteInstant {
+    let molad_days = chalakim_since_rd0 as f64 / CHALAKIM_PER_DAY as f64;
     let jd_mean_time = molad_days + RD0_JULIAN_DAY;
     let jd_ut = jd_mean_time - MOLAD_MERIDIAN_DEG_EAST / 15.0 / 24.0;
     AbsoluteInstant::from_julian_day(jd_ut)
+}
+
+/// Molad of `(year, month)` as an absolute UT instant (ADR core-domain/0001). The exact-integer
+/// chalakim are projected from the molad mean-time frame to UT via [`chalakim_to_instant`]
+/// (the one float/assumption step — see [`MOLAD_MERIDIAN_DEG_EAST`]).
+pub fn molad_instant(year: i32, month: u8) -> AbsoluteInstant {
+    chalakim_to_instant(molad_chalakim(year, month))
 }
 
 /// Which month a death-in-Adar anniversary falls in, for the target year, under the knob.

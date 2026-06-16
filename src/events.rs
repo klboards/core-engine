@@ -95,6 +95,14 @@ fn effective_alt_deg(jd: f64, site: &Site, body: Body, refr: RefractionModel) ->
     refr.apparent(geo).deg()
 }
 
+/// Sun effective altitude (degrees) at UT JD `jd` for `site`, under the depression-refraction knob —
+/// exposed (additive) so the Kiddush-Levana **night** predicate (coupling #3, ADR core-domain/0016)
+/// can test "sun below −angle" without re-implementing [`effective_alt_deg`]. Geometric when
+/// `optics.depression_refraction` is `None` (the default for depression shitot).
+pub fn sun_effective_alt_deg(jd: f64, site: &Site, optics: &Optics) -> f64 {
+    effective_alt_deg(jd, site, Body::Sun, optics.depression_refraction)
+}
+
 /// Find the UT JD in `[lo, hi]` where the effective altitude crosses `target` with the slope
 /// matching `dir`. `None` if no such crossing — i.e. does-not-occur (ADR core-domain/0009).
 fn find_crossing(

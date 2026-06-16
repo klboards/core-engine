@@ -115,8 +115,8 @@ opinions additive-without-code (0002).
 |---|---|---|---|---|---|---|---|---|
 | `locale.realm` | **Israel vs diaspora** — drives parsha divergence, yom-tov-sheni, tal-u-matar basis | `enum{eretz-yisrael, diaspora}` | — | the two values | **Req** | config/preset layer | F3 | 0001, 0008 |
 | `nusach.customs` | Bundle of nusach calendar customs (Omer wording, Rosh-Chodesh/molad announcement, tachanun set, etc.) | `identifier` or `map<identifier, value>` | — | community-supplied | Opt | feature-gated | F3 | 0002 |
-| `tal_umatar.basis` | Which rule starts tal-u-matar | `enum{tekufa-based, fixed-7-cheshvan}` | — | the two values | **Req if** tal-u-matar emitted | config/preset layer | F3 (gated by F1-class tekufa) | 0001, 0002 |
-| `tekufa.method` | Tekufa computation method (for seasons + tekufa-based tal-u-matar) | `enum{shmuel, rav-ada}` | — | the two values | **Req if** `tal_umatar.basis = tekufa-based` | config/preset layer | F3 (consumes F1-class read) | 0001 |
+| `tal_umatar.basis` | Which rule starts tal-u-matar | `enum{tekufa-based, fixed-7-cheshvan}` | — | the two values | **Req if** tal-u-matar emitted | config/preset layer | F3 (arithmetic; 0016) | 0001, 0002 |
+| `tekufa.method` | Tekufa computation method (for seasons + tekufa-based tal-u-matar) | `enum{shmuel, rav-ada}` | — | the two values | **Req if** `tal_umatar.basis = tekufa-based` | config/preset layer | F3 (arithmetic, not F1; 0016) | 0001 |
 | `adar.anniversary_rule` | How an Adar yahrzeit/anniversary maps across leap vs non-leap years | `enum` (community-supplied policy set) | — | registered policies | **Req if** yahrzeit emitted | config/preset layer | F3 | 0001, 0008 |
 | `learning_cycles` | Which learning cycles to compute (daf yomi, etc.) | `list<identifier>` | — | registered cycles | Opt | feature-gated | F3 | 0001 |
 | `omer.custom` | Omer counting/labeling custom | `identifier` | — | community-supplied | Opt | feature-gated | F3 | 0001, 0002 |
@@ -218,10 +218,13 @@ never reached) are returned as a **typed `does-not-occur`**, never a wrong insta
    (weekday / shabbat / yom-tov / erev / fast / …). That token **selects** which solar reads are
    meaningful (candle-lighting only on erev; fast-start/end only on fast days). Type:
    `F1.requested_reads = select(zman_definitions, F3.day_type(t))`.
-3. **tal-u-matar = tekufa gated by F3 date + realm.** The tekufa instant is an **F1-class**
-   astronomical computation; whether/when tal-u-matar begins is **F3(date rule) + `locale.realm`**
-   gating that instant, per `tal_umatar.basis`/`tekufa.method`. Type:
-   `F3.talUmatarStart = gate(F1class.tekufa(tekufa.method), F3.date_rule, locale.realm)`.
+3. **tal-u-matar = realm-selected calendar arithmetic.** `locale.realm` selects between two **F3-class**
+   computations: EY → fixed 7 Cheshvan; diaspora → the 60th day after the (arithmetic) Tekufat Tishrei
+   per `tekufa.method`. Type: `F3.talUmatarStart = select(locale.realm, fixed7Cheshvan, tekufa60th(tekufa.method))`.
+   **Correction (ADR core-domain/0016):** the tekufa is **arithmetic, not astronomy** — Shmuel is the
+   Julian 365¼-day construct, Rav Ada the Metonic mean; both are F3-class integer arithmetic. The
+   earlier "F1class.tekufa" framing was imprecise; only a true-astronomical-equinox method would be
+   F1-class, and F1 is *off* the tal-u-matar critical path. (Implemented in `src/tekufa.rs`.)
 4. **Kiddush Levana = F3 window confirmed by F2 visibility.** F3 computes the permissible window
    `[start, end]` from molad arithmetic; **F2** confirms moon visibility within it. Type:
    `result = confirm(F3.kidushLevanaWindow(t), F2.visible(·))` → the usable sub-interval.
