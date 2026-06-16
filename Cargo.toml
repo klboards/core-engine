@@ -1,0 +1,33 @@
+[package]
+name = "core-engine"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "klboards deterministic zmanim/calendar core engine. F1 (solar) this pass; freestanding no_std (ADR core-domain/0010). See docs/adr."
+
+# rlib for the std integration-test harness; cdylib so the engine can be built to
+# wasm32-unknown-unknown for the native-vs-wasm FP-determinism check (ADR core-domain/0010).
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+# `std` exists ONLY as a test-ergonomics shim so the std integration harness and the
+# freestanding wasm artifact share one crate. The canonical engine artifact builds
+# `--no-default-features` (true #![no_std], ADR core-domain/0010). Math is libm either way.
+default = ["std"]
+std = []
+
+[dependencies]
+# Pure-Rust, no_std transcendental math. The determinism anchor of ADR core-domain/0010:
+# in #![no_std] there is no f64::sin/cos/atan2 (those are std), so the engine is *forced*
+# through this vendored libm on every target — native and wasm compile the SAME source.
+libm = { version = "0.2", default-features = false }
+
+[dev-dependencies]
+# DST-aware IANA tz rendering for the golden-vector harness ONLY. Lives at the edge, never in
+# the core (ADR core-domain/0007 boundary, validated by this harness). std + test-only.
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+
+[profile.release]
+panic = "abort"
