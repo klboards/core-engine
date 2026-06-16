@@ -16,6 +16,7 @@
 #![deny(unsafe_code)]
 #![deny(missing_docs)]
 
+pub mod calendar;
 pub mod events;
 pub mod ffi;
 pub mod geometry;

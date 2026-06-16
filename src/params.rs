@@ -17,6 +17,18 @@ pub enum Stringency {
     Nearest,
 }
 
+/// For a yahrzeit/anniversary that fell in Adar of a common year, which Adar to observe in a
+/// **leap** year (ADR core-domain/0014). Halachic knob — the core resolves none.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AdarAnniversaryRule {
+    /// Adar II (Rema / most poskim) — the default.
+    AdarII,
+    /// Adar I.
+    AdarI,
+    /// Both (dual observance; the single-date API uses Adar II).
+    Both,
+}
+
 /// Whether a zman *opens* or *closes* an obligation — drives stringent rounding direction
 /// (a closing zman rounds earlier to be stringent; an opening zman rounds later).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
