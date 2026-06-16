@@ -80,6 +80,38 @@ fn main() {
             6.5,
             "lat60_june_tzeit_6.5_grazing",
         ),
+        // F2 (lunar): moonrise/moonset (ref_jd = local-midnight day-start) + an apparent altitude;
+        // F3 molad instant (ref_jd = year, angle = month). These exercise the ELP series, the
+        // topocentric parallax, the moon crossing, and the molad UT projection.
+        (
+            7,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_753.416_667,
+            0.0,
+            "jeru_moonrise",
+        ),
+        (
+            8,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_753.416_667,
+            0.0,
+            "jeru_moonset",
+        ),
+        (
+            9,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_755.208_333,
+            0.0,
+            "jeru_moon_alt",
+        ),
+        (10, 0.0, 0.0, 0.0, 5786.0, 7.0, "molad_tishrei_5786"),
+        (10, 0.0, 0.0, 0.0, 5787.0, 7.0, "molad_tishrei_5787"),
     ];
     for &(kind, lat, lon, elev, ref_jd, angle, label) in rows {
         let nanos = probe_zman_nanos(kind, lat, lon, elev, ref_jd, angle);

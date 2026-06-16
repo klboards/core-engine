@@ -1,4 +1,5 @@
-//! klboards core-engine — F1 (solar geometry) this pass.
+//! klboards core-engine — F1 (solar geometry), F2 (lunar geometry), F3 (Hebrew calendar) +
+//! molad/Kiddush Levana. The F1↔F3 / F2↔F3 couplings (ADR core-domain/0001) are the next pass.
 //!
 //! Freestanding engine (ADR core-domain/0010; org/0006 Profile A). The canonical artifact is
 //! built `--no-default-features` → `#![no_std]`. A default `std` feature exists ONLY so the std
@@ -20,6 +21,8 @@ pub mod calendar;
 pub mod events;
 pub mod ffi;
 pub mod geometry;
+pub mod kiddush_levana;
+pub mod lunar;
 pub mod optics;
 pub mod params;
 pub mod time;

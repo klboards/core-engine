@@ -1,0 +1,12 @@
+kind,site,lat,lon,elev,arg_utc,expected,tol,notes
+alt,jerusalem,31.778,35.2354,754,2026-03-20T17:00:00,5.656534,0.02,Wolfram MoonPosition apparent topocentric altitude (deg)
+alt,jerusalem,31.778,35.2354,754,2026-03-25T19:00:00,48.024088,0.02,Wolfram apparent topo alt
+alt,jerusalem,31.778,35.2354,754,2026-03-10T02:00:00,30.487479,0.02,Wolfram apparent topo alt
+alt,jerusalem,31.778,35.2354,754,2026-04-02T20:00:00,35.939298,0.02,Wolfram apparent topo alt (near full moon)
+alt,nyc,40.7128,-74.006,10,2026-03-28T03:00:00,59.963893,0.02,Wolfram apparent topo alt
+alt,equator,0,0,0,2026-03-20T17:00:00,33.930580,0.02,Wolfram apparent topo alt
+alt,lat60,60,10,0,2026-03-20T20:00:00,1.593781,0.03,Wolfram apparent topo alt (near horizon, high lat)
+moonrise,jerusalem,31.778,35.2354,754,2026-03-19T22:00:00,2026-03-20T04:09:30,60,Wolfram apparent-alt scan to -(SD+dip); engine reuses F1 crossing
+moonset,jerusalem,31.778,35.2354,754,2026-03-19T22:00:00,2026-03-20T17:38:10,60,Wolfram apparent-alt scan to -(SD+dip)
+moonrise,nyc,40.7128,-74.006,10,2026-03-20T04:00:00,2026-03-20T11:30:50,60,Wolfram apparent-alt scan to -(SD+dip)
+moonset,nyc,40.7128,-74.006,10,2026-03-20T04:00:00,2026-03-21T01:25:20,60,Wolfram apparent-alt scan to -(SD+dip)

@@ -10,10 +10,22 @@
 //! (the `start`/`end` bounds), NOT code branches.
 
 use crate::geometry::solar_altitude_deg;
-use crate::optics::{horizon_apparent_target_deg, RefractionModel};
+use crate::lunar::{moon_altitude_deg, moon_semidiameter_deg};
+use crate::optics::{horizon_apparent_target_deg, horizon_target_deg, RefractionModel};
 use crate::params::Optics;
 use crate::units::GeometricAltitude;
 use crate::{AbsoluteInstant, Site, ZmanResult};
+
+/// Which body's altitude curve a crossing is solved against. The crossing machinery is otherwise
+/// body-agnostic; the Sun (F1) and Moon (F2) differ only in the altitude function (and the Moon's
+/// distance-dependent semidiameter + mandatory topocentric parallax, handled in `lunar`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Body {
+    /// The Sun (F1).
+    Sun,
+    /// The Moon (F2).
+    Moon,
+}
 
 /// Sense of an altitude crossing.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -75,8 +87,11 @@ const BISECT_ITERS: u32 = 60; // 60 halvings → far sub-nanosecond
 /// Effective altitude (degrees) the read is solved against: geometric + refraction model.
 /// `RefractionModel::None` ⇒ geometric.
 #[inline]
-fn effective_alt_deg(jd: f64, site: &Site, refr: RefractionModel) -> f64 {
-    let geo = GeometricAltitude(solar_altitude_deg(jd, site));
+fn effective_alt_deg(jd: f64, site: &Site, body: Body, refr: RefractionModel) -> f64 {
+    let geo = GeometricAltitude(match body {
+        Body::Sun => solar_altitude_deg(jd, site),
+        Body::Moon => moon_altitude_deg(jd, site),
+    });
     refr.apparent(geo).deg()
 }
 
@@ -88,19 +103,20 @@ fn find_crossing(
     hi: f64,
     target: f64,
     dir: Direction,
+    body: Body,
     refr: RefractionModel,
 ) -> Option<f64> {
     let mut prev_t = lo;
-    let mut prev_f = effective_alt_deg(lo, site, refr) - target;
+    let mut prev_f = effective_alt_deg(lo, site, body, refr) - target;
     let mut i = 1u32;
     while i <= SCAN_STEPS {
         let t = lo + (hi - lo) * (i as f64 / SCAN_STEPS as f64);
-        let f = effective_alt_deg(t, site, refr) - target;
+        let f = effective_alt_deg(t, site, body, refr) - target;
         if (prev_f < 0.0) != (f < 0.0) {
             let increasing = f > prev_f;
             let want_increasing = matches!(dir, Direction::Rising);
             if increasing == want_increasing {
-                return Some(bisect(site, prev_t, t, target, refr));
+                return Some(bisect(site, prev_t, t, target, body, refr));
             }
         }
         prev_t = t;
@@ -110,12 +126,19 @@ fn find_crossing(
     None
 }
 
-fn bisect(site: &Site, mut a: f64, mut b: f64, target: f64, refr: RefractionModel) -> f64 {
-    let mut fa = effective_alt_deg(a, site, refr) - target;
+fn bisect(
+    site: &Site,
+    mut a: f64,
+    mut b: f64,
+    target: f64,
+    body: Body,
+    refr: RefractionModel,
+) -> f64 {
+    let mut fa = effective_alt_deg(a, site, body, refr) - target;
     let mut k = 0u32;
     while k < BISECT_ITERS {
         let mid = 0.5 * (a + b);
-        let fmid = effective_alt_deg(mid, site, refr) - target;
+        let fmid = effective_alt_deg(mid, site, body, refr) - target;
         if (fa < 0.0) != (fmid < 0.0) {
             b = mid;
         } else {
@@ -143,12 +166,28 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
     match spec {
         ReadSpec::DepressionAngle { angle_deg, dir } => {
             let (lo, hi) = window(ref_jd, dir);
-            find_crossing(site, lo, hi, -angle_deg, dir, optics.depression_refraction)
+            find_crossing(
+                site,
+                lo,
+                hi,
+                -angle_deg,
+                dir,
+                Body::Sun,
+                optics.depression_refraction,
+            )
         }
         ReadSpec::HorizonCrossing { dir } => {
             let (lo, hi) = window(ref_jd, dir);
             let target = horizon_apparent_target_deg(optics.horizon_mode, site.elev_m);
-            find_crossing(site, lo, hi, target, dir, optics.horizon_refraction)
+            find_crossing(
+                site,
+                lo,
+                hi,
+                target,
+                dir,
+                Body::Sun,
+                optics.horizon_refraction,
+            )
         }
         ReadSpec::ExtremumMidpoint => {
             let netz = read_jd(
@@ -226,4 +265,33 @@ fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f
 #[inline]
 pub fn read_instant(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> ZmanResult {
     read_jd(site, ref_jd, spec, optics).map(AbsoluteInstant::from_julian_day)
+}
+
+/// Moonrise/moonset (F2) within the civil day starting at `day_start_jd` (the UT Julian Day of the
+/// local-midnight start of the date) — the **first** rise (`Rising`) or set (`Setting`) event in
+/// `[day_start_jd, day_start_jd + 1]`, or `None` on a day the Moon does not rise/set (it skips
+/// ~once a month). Unlike the Sun, lunar rise/set do not bracket local noon, so the search spans a
+/// full civil day rather than `window()`'s noon-anchored half-day.
+///
+/// The event is the apparent upper limb at the dipped horizon: target = `−(moon semidiameter + dip)`
+/// with `optics.horizon_refraction` added by the crossing solver. The Moon's semidiameter is taken
+/// at the day midpoint (it varies <0.1′ across the day → sub-second).
+pub fn moon_rise_set(
+    site: &Site,
+    day_start_jd: f64,
+    dir: Direction,
+    optics: &Optics,
+) -> ZmanResult {
+    let sd = moon_semidiameter_deg(day_start_jd + 0.5);
+    let target = horizon_target_deg(optics.horizon_mode, site.elev_m, sd);
+    find_crossing(
+        site,
+        day_start_jd,
+        day_start_jd + 1.0,
+        target,
+        dir,
+        Body::Moon,
+        optics.horizon_refraction,
+    )
+    .map(AbsoluteInstant::from_julian_day)
 }

@@ -29,6 +29,28 @@ pub enum AdarAnniversaryRule {
     Both,
 }
 
+/// When the Kiddush Levana window *opens* relative to the molad (ADR core-domain/0015). Halachic
+/// knob — the core resolves none; genuinely contested between Ashkenaz and Sephardi practice.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum KiddushLevanaStart {
+    /// 3 days (72 h) after the molad — Rema / common Ashkenaz. **Default.**
+    ThreeDays,
+    /// 7 days after the molad — many Sephardim / AriZal.
+    SevenDays,
+    /// From the molad moment itself (no waiting period).
+    Molad,
+}
+
+/// When the Kiddush Levana window *closes* relative to the molad (ADR core-domain/0015). Halachic
+/// knob — the core resolves none.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum KiddushLevanaEnd {
+    /// Half a mean lunar month after the molad (molad + ½·synodic = 14d 18h 22m) — Rema. **Default.**
+    HalfMonth,
+    /// 15 full days after the molad.
+    FifteenDays,
+}
+
 /// Whether a zman *opens* or *closes* an obligation — drives stringent rounding direction
 /// (a closing zman rounds earlier to be stringent; an opening zman rounds later).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

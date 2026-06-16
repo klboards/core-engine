@@ -22,3 +22,7 @@ festival,5787,RoshHashanah,,2026-09-12,1 Tishrei leap
 festival,5787,YomKippur,,2026-09-21,10 Tishrei
 yahrzeit,5786/12/14,5787,AdarII,2027-03-23,common-Adar death → Adar II in leap (Rema default)
 yahrzeit,5786/12/14,5787,AdarI,2027-02-21,same death → Adar I (knob)
+molad_ch,1/7,,,-35599228716,BaHaRaD anchor (= -1373427*25920 - 876); 5h 204ch Mon night — canonical
+molad_ch,5786/7,,,19168267867,molad Tishrei 5786 (= BaHaRaD + months*765433); RH 5786 = Tue 2025-09-23 (Hebcal)
+molad_ch,5786/1,,,19172860465,molad Nisan 5786
+molad_ch,5787/7,,,19177453063,molad Tishrei 5787 (leap year)

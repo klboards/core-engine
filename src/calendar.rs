@@ -7,6 +7,7 @@
 //! Validated against Wolfram "Jewish" calendar + Hebcal cross-check.
 
 use crate::params::AdarAnniversaryRule;
+use crate::AbsoluteInstant;
 
 /// Rata Die: integer day number; RD 1 = proleptic-Gregorian 0001-01-01. The conversion pivot.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -266,6 +267,68 @@ pub fn festival_date(year: i32, fest: Festival) -> RataDie {
         }),
         Festival::Chanukah => fixed_from_hebrew(h(9, 25)),
     }
+}
+
+// ── Molad (mean lunar conjunction) — the F3 deferral from ADR core-domain/0014, needed by F2's
+// Kiddush Levana. The molad is *calendar arithmetic* (the fixed mean conjunction), distinct from
+// the observed moon (F2 proper); it stays here in F3. Exact integer in the molad's own mean-time
+// frame; only the final UT projection (`molad_instant`) is float and carries a meridian assumption.
+
+/// Chalakim (1/1080 hour) per day.
+pub const CHALAKIM_PER_DAY: i64 = 25_920;
+/// Chalakim in one mean synodic month = 29d 12h 793p (= 29 × 25920 + 12 × 1080 + 793).
+pub const CHALAKIM_PER_MONTH: i64 = 765_433;
+/// D–R molad epoch offset: the molad of Tishrei AM 1 (BaHaRaD) is `HEBREW_EPOCH − 876/25920` (RD).
+const MOLAD_EPOCH_OFFSET_CHALAKIM: i64 = 876;
+/// Julian Day at RD 0, 00:00 (RD 1 = proleptic-Gregorian 0001-01-01 = JD 1_721_425.5).
+const RD0_JULIAN_DAY: f64 = 1_721_424.5;
+
+/// **ASSUMPTION (flagged finding, ADR core-domain/0015):** the meridian whose *local mean solar
+/// time* the molad reckoning is referenced to, for projecting the molad to UT. Taken as Jerusalem
+/// (35.2354°E ≈ the traditional 2h21m offset). The molad's day-of-week + hour + chalakim are
+/// meridian-free and exact; ONLY the absolute-UT projection depends on this constant.
+pub const MOLAD_MERIDIAN_DEG_EAST: f64 = 35.2354;
+
+/// Lunar months elapsed from the BaHaRaD epoch to the molad of `(year, month)` (D–R molad).
+fn molad_months_elapsed(year: i32, month: u8) -> i64 {
+    // The year number rolls at Tishrei (m7); Nisan..Elul (m<7) belong to the half-year that began
+    // the *previous* Tishrei, so they count against (year + 1).
+    let y = if month < 7 {
+        year as i64 + 1
+    } else {
+        year as i64
+    };
+    (month as i64 - 7) + quotient(235 * y - 234, 19)
+}
+
+/// Molad of `(year, month)` as **exact-integer chalakim since RD 0** in the molad mean-time frame
+/// (no float, no meridian — structurally deterministic). The interval between consecutive molads is
+/// exactly [`CHALAKIM_PER_MONTH`].
+pub fn molad_chalakim(year: i32, month: u8) -> i64 {
+    HEBREW_EPOCH * CHALAKIM_PER_DAY - MOLAD_EPOCH_OFFSET_CHALAKIM
+        + molad_months_elapsed(year, month) * CHALAKIM_PER_MONTH
+}
+
+/// Molad of `(year, month)` rendered in its mean-time frame as `(civil RD, hour, minute, chalakim)`
+/// — meridian-free and exact (hour 0..24 from civil midnight). This is the canonical, citable form
+/// (a molad table's day/hour/chalakim derive from it).
+pub fn molad_civil(year: i32, month: u8) -> (RataDie, u8, u8, u16) {
+    let ch = molad_chalakim(year, month);
+    let rd = ch.div_euclid(CHALAKIM_PER_DAY);
+    let in_day = ch.rem_euclid(CHALAKIM_PER_DAY);
+    let hour = in_day / 1_080;
+    let rem = in_day % 1_080;
+    (RataDie(rd), hour as u8, (rem / 18) as u8, (rem % 18) as u16)
+}
+
+/// Molad of `(year, month)` as an absolute UT instant (ADR core-domain/0001). The exact-integer
+/// chalakim are projected from the molad mean-time frame to UT via [`MOLAD_MERIDIAN_DEG_EAST`]
+/// (the one float/assumption step — see that constant's note).
+pub fn molad_instant(year: i32, month: u8) -> AbsoluteInstant {
+    let molad_days = molad_chalakim(year, month) as f64 / CHALAKIM_PER_DAY as f64;
+    let jd_mean_time = molad_days + RD0_JULIAN_DAY;
+    let jd_ut = jd_mean_time - MOLAD_MERIDIAN_DEG_EAST / 15.0 / 24.0;
+    AbsoluteInstant::from_julian_day(jd_ut)
 }
 
 /// Which month a death-in-Adar anniversary falls in, for the target year, under the knob.

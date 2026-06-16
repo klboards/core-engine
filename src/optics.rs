@@ -84,14 +84,28 @@ pub fn geometric_dip_deg(elev_m: f64) -> f64 {
     }
 }
 
+/// Horizon dip (degrees) selected by the mode — 0 for Mishor, the elevation dip otherwise.
+/// TerrainProfile falls back to the elevation dip until the /0004 profile path is wired.
+#[inline]
+fn horizon_dip_deg(mode: HorizonMode, elev_m: f64) -> f64 {
+    match mode {
+        HorizonMode::Mishor => 0.0,
+        HorizonMode::Visible | HorizonMode::TerrainProfile => geometric_dip_deg(elev_m),
+    }
+}
+
+/// Apparent body-centre altitude (degrees, negative) at the rise/set event for a body of the given
+/// apparent `semidiameter_deg`: `−(semidiameter + dip)` per the horizon mode. Refraction is added
+/// separately (by `events::effective_alt_deg`), so this is the *geometric* target the apparent limb
+/// reaches the (dipped) horizon at. Shared by the Sun (F1) and Moon (F2).
+#[inline]
+pub fn horizon_target_deg(mode: HorizonMode, elev_m: f64, semidiameter_deg: f64) -> f64 {
+    -(semidiameter_deg + horizon_dip_deg(mode, elev_m))
+}
+
 /// Apparent sun-centre altitude (degrees, negative) at the sunrise/sunset event:
 /// `−(semidiameter + dip)` per the horizon mode (ADR core-domain/0013).
 #[inline]
 pub fn horizon_apparent_target_deg(mode: HorizonMode, elev_m: f64) -> f64 {
-    let dip = match mode {
-        HorizonMode::Mishor => 0.0,
-        // TerrainProfile falls back to the elevation dip until the /0004 profile path is wired.
-        HorizonMode::Visible | HorizonMode::TerrainProfile => geometric_dip_deg(elev_m),
-    };
-    -(semidiameter_deg() + dip)
+    horizon_target_deg(mode, elev_m, semidiameter_deg())
 }
