@@ -13,12 +13,16 @@
 //! The engine emits **absolute, timezone-free instants** (ADR core-domain/0001, /0007). All
 //! civil-time / wall-clock / civil-day labelling is an EDGE concern (harness), never here.
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_code)]
+#![warn(missing_docs)]
 
-pub mod time;
-pub mod solar;
-pub mod refraction;
-pub mod reads;
 pub mod ffi;
+pub mod optics;
+pub mod params;
+pub mod reads;
+pub mod solar;
+pub mod time;
+pub mod units;
 
 /// Freestanding panic handler — only for the `#![no_std]` (no `std` feature) artifact, e.g. wasm
 /// and the eventual device build. The std test/host build uses std's handler.

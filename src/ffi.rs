@@ -5,6 +5,7 @@
 //! (This C-ABI is also the shape the device/FFI relinkability boundary of ADR core-domain/0003
 //! will take; here it exists for the determinism harness.)
 
+use crate::params::Optics;
 use crate::reads::{read_instant, Bound, Direction, ReadSpec};
 use crate::Site;
 
@@ -13,6 +14,9 @@ pub const DOES_NOT_OCCUR: i64 = i64::MIN;
 
 /// `kind`: 0 depression-rising · 1 depression-setting · 2 netz · 3 shkia · 4 chatzot ·
 /// 5 sof-zman-shma GRA · 6 sof-zman-shma MGA(−16.1). `angle` used by kinds 0/1.
+// The crate denies unsafe_code; this single C-ABI export (the determinism-harness / future
+// ADR-0003 relinkability boundary) is the one justified exception.
+#[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn probe_zman_nanos(
     kind: u32,
@@ -22,12 +26,26 @@ pub extern "C" fn probe_zman_nanos(
     ref_jd: f64,
     angle_deg: f64,
 ) -> i64 {
-    let site = Site { lat_deg, lon_deg, elev_m };
+    let site = Site {
+        lat_deg,
+        lon_deg,
+        elev_m,
+    };
     let spec = match kind {
-        0 => ReadSpec::DepressionAngle { angle_deg, dir: Direction::Rising },
-        1 => ReadSpec::DepressionAngle { angle_deg, dir: Direction::Setting },
-        2 => ReadSpec::HorizonCrossing { dir: Direction::Rising },
-        3 => ReadSpec::HorizonCrossing { dir: Direction::Setting },
+        0 => ReadSpec::DepressionAngle {
+            angle_deg,
+            dir: Direction::Rising,
+        },
+        1 => ReadSpec::DepressionAngle {
+            angle_deg,
+            dir: Direction::Setting,
+        },
+        2 => ReadSpec::HorizonCrossing {
+            dir: Direction::Rising,
+        },
+        3 => ReadSpec::HorizonCrossing {
+            dir: Direction::Setting,
+        },
         4 => ReadSpec::ExtremumMidpoint,
         5 => ReadSpec::Proportional {
             fraction: 3.0 / 12.0,
@@ -36,12 +54,18 @@ pub extern "C" fn probe_zman_nanos(
         },
         6 => ReadSpec::Proportional {
             fraction: 3.0 / 12.0,
-            start: Bound::Depression { angle_deg: 16.1, dir: Direction::Rising },
-            end: Bound::Depression { angle_deg: 16.1, dir: Direction::Setting },
+            start: Bound::Depression {
+                angle_deg: 16.1,
+                dir: Direction::Rising,
+            },
+            end: Bound::Depression {
+                angle_deg: 16.1,
+                dir: Direction::Setting,
+            },
         },
         _ => return DOES_NOT_OCCUR,
     };
-    match read_instant(&site, ref_jd, spec) {
+    match read_instant(&site, ref_jd, spec, &Optics::default()) {
         Some(ai) => ai.unix_nanos,
         None => DOES_NOT_OCCUR,
     }

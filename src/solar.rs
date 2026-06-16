@@ -64,9 +64,10 @@ pub fn solar_altitude_deg(jd: f64, site: &Site) -> f64 {
 
     // Greenwich mean sidereal time (deg) — Earth rotation, on UT (NOT TT).
     let t_ut = (jd - 2_451_545.0) / 36_525.0;
-    let gmst =
-        norm360(280.46061837 + 360.98564736629 * (jd - 2_451_545.0) + t_ut * t_ut * 0.000387933
-            - t_ut * t_ut * t_ut / 38_710_000.0);
+    let gmst = norm360(
+        280.46061837 + 360.98564736629 * (jd - 2_451_545.0) + t_ut * t_ut * 0.000387933
+            - t_ut * t_ut * t_ut / 38_710_000.0,
+    );
 
     let hour_angle = (gmst + site.lon_deg - ra_deg) * DEG; // local hour angle (rad)
     let phi = site.lat_deg * DEG;

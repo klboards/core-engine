@@ -12,18 +12,74 @@ use core_engine::ffi::probe_zman_nanos;
 fn main() {
     // (kind, lat, lon, elev_m, ref_jd_ut, angle_deg, label)
     let rows: &[(u32, f64, f64, f64, f64, f64, &str)] = &[
-        (2, 31.778, 35.235, 754.0, 2_460_755.0, 0.0, "jeru_netz_equinox"),
-        (3, 31.778, 35.235, 754.0, 2_460_755.0, 0.0, "jeru_shkia_equinox"),
-        (0, 31.778, 35.235, 754.0, 2_460_755.0, 16.1, "jeru_alot_16.1"),
+        (
+            2,
+            31.778,
+            35.235,
+            754.0,
+            2_460_755.0,
+            0.0,
+            "jeru_netz_equinox",
+        ),
+        (
+            3,
+            31.778,
+            35.235,
+            754.0,
+            2_460_755.0,
+            0.0,
+            "jeru_shkia_equinox",
+        ),
+        (
+            0,
+            31.778,
+            35.235,
+            754.0,
+            2_460_755.0,
+            16.1,
+            "jeru_alot_16.1",
+        ),
         (1, 31.778, 35.235, 754.0, 2_460_755.0, 8.5, "jeru_tzeit_8.5"),
         (4, 40.7128, -74.006, 10.0, 2_460_755.0, 0.0, "nyc_chatzot"),
         (2, 0.0, 0.0, 0.0, 2_460_755.0, 0.0, "equator_netz"),
-        (5, 31.778, 35.235, 754.0, 2_460_755.0, 0.0, "jeru_sofzman_shma_gra"),
-        (6, 31.778, 35.235, 754.0, 2_460_755.0, 0.0, "jeru_sofzman_shma_mga"),
-        (0, 51.5, -0.12, 0.0, 2_460_848.0, 16.1, "london_june_alot_16.1_dno"),
+        (
+            5,
+            31.778,
+            35.235,
+            754.0,
+            2_460_755.0,
+            0.0,
+            "jeru_sofzman_shma_gra",
+        ),
+        (
+            6,
+            31.778,
+            35.235,
+            754.0,
+            2_460_755.0,
+            0.0,
+            "jeru_sofzman_shma_mga",
+        ),
+        (
+            0,
+            51.5,
+            -0.12,
+            0.0,
+            2_460_848.0,
+            16.1,
+            "london_june_alot_16.1_dno",
+        ),
         // True near-grazing: lat 60, June, min night altitude ≈ −6.6°, so a setting crossing of
         // −6.5° barely exists — the ~30 ns sub-ULP regime the ±1-min vectors cannot see.
-        (1, 60.0, 10.0, 0.0, 2_460_848.0, 6.5, "lat60_june_tzeit_6.5_grazing"),
+        (
+            1,
+            60.0,
+            10.0,
+            0.0,
+            2_460_848.0,
+            6.5,
+            "lat60_june_tzeit_6.5_grazing",
+        ),
     ];
     for &(kind, lat, lon, elev, ref_jd, angle, label) in rows {
         let nanos = probe_zman_nanos(kind, lat, lon, elev, ref_jd, angle);

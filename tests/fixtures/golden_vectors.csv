@@ -1,42 +1,42 @@
 location,lat,lon,elev_m,tz,date,zman_key,def_type,parameter,expected_local,status,notes
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,04:05,ok,refraction-independent geometry
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:32,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:33,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,netz,horizon_crossing,apparent_sunrise@elev,05:26,ok,terrain/refraction-sensitive; -6m15s vs sea level
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,chatzot,extremum_midpoint,(netz+shkia)/2,12:39,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,shkia,horizon_crossing,apparent_sunset@elev,19:52,ok,
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,20:29,ok,
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,21:14,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,20:28,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,21:13,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,shaah_zmanit_gra,proportional,(shkia-netz)/12,72.2min,ok,derived duration not an instant
-Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,03:34,ok,
-Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:11,ok,
+Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,03:35,ok,
+Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:12,ok,
 Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,netz,horizon_crossing,apparent_sunrise@elev,05:22,ok,
 Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,chatzot,extremum_midpoint,(netz+shkia)/2,12:56,ok,
 Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,shkia,horizon_crossing,apparent_sunset@elev,20:30,ok,
-Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,21:20,ok,
-Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,22:18,ok,
+Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,21:19,ok,
+Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,22:17,ok,
 Brooklyn,40.67,-73.94,20,America/New_York,2026-06-15,shaah_zmanit_gra,proportional,(shkia-netz)/12,75.6min,ok,
-Paris,48.86,2.35,35,Europe/Paris,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,03:00,ok,deep twilight near solar midnight
-Paris,48.86,2.35,35,Europe/Paris,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:08,ok,
+Paris,48.86,2.35,35,Europe/Paris,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,03:02,ok,deep twilight near solar midnight
+Paris,48.86,2.35,35,Europe/Paris,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,04:09,ok,
 Paris,48.86,2.35,35,Europe/Paris,2026-06-15,netz,horizon_crossing,apparent_sunrise@elev,05:44,ok,
 Paris,48.86,2.35,35,Europe/Paris,2026-06-15,chatzot,extremum_midpoint,(netz+shkia)/2,13:51,ok,
 Paris,48.86,2.35,35,Europe/Paris,2026-06-15,shkia,horizon_crossing,apparent_sunset@elev,21:58,ok,
-Paris,48.86,2.35,35,Europe/Paris,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,23:03,ok,
+Paris,48.86,2.35,35,Europe/Paris,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,23:01,ok,
 Paris,48.86,2.35,35,Europe/Paris,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,00:40+1d,rollover_next_day,EXISTS (deepest -17.7deg) but after civil midnight; output type must carry a day label
 Paris,48.86,2.35,35,Europe/Paris,2026-06-15,shaah_zmanit_gra,proportional,(shkia-netz)/12,81.2min,ok,
 London,51.51,-0.13,10,Europe/London,2026-06-15,alot_16_1,depression_angle,sun_center=-16.1deg,,absent,sun never reaches -16.1deg (deepest -15.1deg); output type must allow NONE
-London,51.51,-0.13,10,Europe/London,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,02:47,ok,
+London,51.51,-0.13,10,Europe/London,2026-06-15,misheyakir_11_5,depression_angle,sun_center=-11.5deg,02:49,ok,
 London,51.51,-0.13,10,Europe/London,2026-06-15,netz,horizon_crossing,apparent_sunrise@elev,04:41,ok,
 London,51.51,-0.13,10,Europe/London,2026-06-15,chatzot,extremum_midpoint,(netz+shkia)/2,13:01,ok,
 London,51.51,-0.13,10,Europe/London,2026-06-15,shkia,horizon_crossing,apparent_sunset@elev,21:21,ok,
-London,51.51,-0.13,10,Europe/London,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,22:36,ok,
+London,51.51,-0.13,10,Europe/London,2026-06-15,tzeit_8_5,depression_angle,sun_center=-8.5deg,22:34,ok,
 London,51.51,-0.13,10,Europe/London,2026-06-15,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,,absent,sun never reaches -16.1deg (deepest -15.1deg)
 London,51.51,-0.13,10,Europe/London,2026-06-15,shaah_zmanit_gra,proportional,(shkia-netz)/12,83.3min,ok,
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,alot_16_1,depression_angle,sun_center=-16.1deg,05:16,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,alot_16_1,depression_angle,sun_center=-16.1deg,05:17,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,misheyakir_11_5,depression_angle,sun_center=-11.5deg,05:39,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,netz,horizon_crossing,apparent_sunrise@elev,06:28,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,chatzot,extremum_midpoint,(netz+shkia)/2,11:37,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,shkia,horizon_crossing,apparent_sunset@elev,16:45,ok,
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,tzeit_8_5,depression_angle,sun_center=-8.5deg,17:20,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,tzeit_8_5,depression_angle,sun_center=-8.5deg,17:19,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,17:57,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,shaah_zmanit_gra,proportional,(shkia-netz)/12,51.4min,ok,winter sha'ah ~51min vs summer ~72min
 Brooklyn,40.67,-73.94,20,America/New_York,2026-12-21,netz,horizon_crossing,apparent_sunrise@elev,07:14,ok,
@@ -52,17 +52,17 @@ Paris,48.86,2.35,35,Europe/Paris,2026-12-21,alot_16_1,depression_angle,sun_cente
 Paris,48.86,2.35,35,Europe/Paris,2026-12-21,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,18:40,ok,
 Paris,48.86,2.35,35,Europe/Paris,2026-12-21,shaah_zmanit_gra,proportional,(shkia-netz)/12,41.6min,ok,
 London,51.51,-0.13,10,Europe/London,2026-12-21,netz,horizon_crossing,apparent_sunrise@elev,08:02,ok,
-London,51.51,-0.13,10,Europe/London,2026-12-21,shkia,horizon_crossing,apparent_sunset@elev,15:54,ok,
+London,51.51,-0.13,10,Europe/London,2026-12-21,shkia,horizon_crossing,apparent_sunset@elev,15:55,ok,
 London,51.51,-0.13,10,Europe/London,2026-12-21,chatzot,extremum_midpoint,(netz+shkia)/2,11:58,ok,
-London,51.51,-0.13,10,Europe/London,2026-12-21,alot_16_1,depression_angle,sun_center=-16.1deg,06:11,ok,exists in winter (cf. absent in June)
+London,51.51,-0.13,10,Europe/London,2026-12-21,alot_16_1,depression_angle,sun_center=-16.1deg,06:12,ok,exists in winter (cf. absent in June)
 London,51.51,-0.13,10,Europe/London,2026-12-21,tzeit_rt_16_1,depression_angle,sun_center=-16.1deg,17:45,ok,
 London,51.51,-0.13,10,Europe/London,2026-12-21,shaah_zmanit_gra,proportional,(shkia-netz)/12,39.4min,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,shaah_zmanit_mga,proportional,(tzeitRT-alot)/12,85.7min,ok,MGA day = alot->tzeit (proportional_day_bounds)
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,sof_zman_shma_gra,proportional,netz+3*shaahGRA,09:03,ok,GRA bounds
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-06-15,sof_zman_shma_mga,proportional,alot+3*shaahMGA,08:22,ok,MGA bounds; ~41min earlier than GRA from one knob
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,shaah_zmanit_mga,proportional,(tzeitRT-alot)/12,63.4min,ok,
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,shaah_zmanit_mga,proportional,(tzeitRT-alot)/12,63.3min,ok,
 Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,sof_zman_shma_gra,proportional,netz+3*shaahGRA,09:02,ok,
-Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,sof_zman_shma_mga,proportional,alot+3*shaahMGA,08:26,ok,~36min earlier than GRA
+Jerusalem,31.78,35.23,754,Asia/Jerusalem,2026-12-21,sof_zman_shma_mga,proportional,alot+3*shaahMGA,08:27,ok,~36min earlier than GRA
 Brooklyn,40.67,-73.94,20,America/New_York,2026-03-07,netz,horizon_crossing,apparent_sunrise@elev,06:18,ok,UTC 11:18Z; EST (UTC-5) pre spring-forward
 Brooklyn,40.67,-73.94,20,America/New_York,2026-03-08,netz,horizon_crossing,apparent_sunrise@elev,07:17,ok,UTC 11:17Z EDT post spring-forward: instant -1min but label +59min -> label is decree-driven (ADR-0007)
 (calendar),-,-,-,-,2026-03-03,yahrzeit_14_adar_nonleap,calendar_f3,14 Adar m12 (5786 non-leap),2026-03-03,ok,Purim 5786 reference

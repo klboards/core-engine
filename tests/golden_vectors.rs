@@ -10,6 +10,7 @@
 
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike};
 use chrono_tz::Tz;
+use core_engine::params::Optics;
 use core_engine::reads::{proportional_span_days, read_instant, Bound, Direction, ReadSpec};
 use core_engine::{time, AbsoluteInstant, Site};
 
@@ -17,7 +18,10 @@ use core_engine::{time, AbsoluteInstant, Site};
 /// sub-second oracle tolerance is an OPEN question owned by ADR core-domain/0003.
 const ORACLE_TOLERANCE_SECS: i64 = 60;
 
-const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/golden_vectors.csv");
+const FIXTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/golden_vectors.csv"
+);
 
 /// MGA day bounds use the fixture's own alot/tzeitRT depression (−16.1°); set via the
 /// `proportional_day_bounds` knob (data), not a code branch.
@@ -45,7 +49,10 @@ fn target_for(zman_key: &str, def_type: &str, parameter: &str) -> Option<Target>
             } else {
                 Direction::Rising
             };
-            Some(Target::Instant(ReadSpec::DepressionAngle { angle_deg, dir }))
+            Some(Target::Instant(ReadSpec::DepressionAngle {
+                angle_deg,
+                dir,
+            }))
         }
         "horizon_crossing" => {
             let dir = match zman_key {
@@ -57,10 +64,19 @@ fn target_for(zman_key: &str, def_type: &str, parameter: &str) -> Option<Target>
         }
         "extremum_midpoint" => Some(Target::Instant(ReadSpec::ExtremumMidpoint)),
         "proportional" => match zman_key {
-            "shaah_zmanit_gra" => Some(Target::Duration { start: Bound::Netz, end: Bound::Shkia }),
+            "shaah_zmanit_gra" => Some(Target::Duration {
+                start: Bound::Netz,
+                end: Bound::Shkia,
+            }),
             "shaah_zmanit_mga" => Some(Target::Duration {
-                start: Bound::Depression { angle_deg: MGA_DEG, dir: Direction::Rising },
-                end: Bound::Depression { angle_deg: MGA_DEG, dir: Direction::Setting },
+                start: Bound::Depression {
+                    angle_deg: MGA_DEG,
+                    dir: Direction::Rising,
+                },
+                end: Bound::Depression {
+                    angle_deg: MGA_DEG,
+                    dir: Direction::Setting,
+                },
             }),
             "sof_zman_shma_gra" => Some(Target::Instant(ReadSpec::Proportional {
                 fraction: 0.25,
@@ -69,8 +85,14 @@ fn target_for(zman_key: &str, def_type: &str, parameter: &str) -> Option<Target>
             })),
             "sof_zman_shma_mga" => Some(Target::Instant(ReadSpec::Proportional {
                 fraction: 0.25,
-                start: Bound::Depression { angle_deg: MGA_DEG, dir: Direction::Rising },
-                end: Bound::Depression { angle_deg: MGA_DEG, dir: Direction::Setting },
+                start: Bound::Depression {
+                    angle_deg: MGA_DEG,
+                    dir: Direction::Rising,
+                },
+                end: Bound::Depression {
+                    angle_deg: MGA_DEG,
+                    dir: Direction::Setting,
+                },
             })),
             _ => None,
         },
@@ -135,21 +157,39 @@ fn f1_golden_vectors() {
         let label = format!("{} {} {}", f[0], date, zman_key);
 
         let (ok, engine_str, resid, hypo) = match target_for(zman_key, def_type, parameter) {
-            None => (false, "UNMAPPED".to_string(), String::new(), "unmapped in-scope token"),
+            None => (
+                false,
+                "UNMAPPED".to_string(),
+                String::new(),
+                "unmapped in-scope token",
+            ),
             Some(Target::Duration { start, end }) => {
                 let exp_min = expected.trim_end_matches("min").trim().parse::<f64>().ok();
-                match (proportional_span_days(&site, ref_jd, start, end), exp_min) {
+                match (
+                    proportional_span_days(&site, ref_jd, start, end, &Optics::default()),
+                    exp_min,
+                ) {
                     (Some(span_days), Some(em)) => {
                         let got = span_days * 120.0; // (span/12 days) → minutes
                         let ok = (got - em).abs() <= ORACLE_TOLERANCE_SECS as f64 / 60.0;
                         let resid = format!("{:+.0}s", (got - em) * 60.0);
-                        (ok, format!("{:.1}min", got), resid, if ok { "" } else { "duration/algorithm" })
+                        (
+                            ok,
+                            format!("{:.1}min", got),
+                            resid,
+                            if ok { "" } else { "duration/algorithm" },
+                        )
                     }
-                    _ => (false, "does-not-occur".to_string(), String::new(), "bound does-not-occur"),
+                    _ => (
+                        false,
+                        "does-not-occur".to_string(),
+                        String::new(),
+                        "bound does-not-occur",
+                    ),
                 }
             }
             Some(Target::Instant(spec)) => {
-                let engine = read_instant(&site, ref_jd, spec);
+                let engine = read_instant(&site, ref_jd, spec, &Optics::default());
                 if status == "absent" {
                     match engine {
                         None => (true, "does-not-occur".to_string(), String::new(), ""),
@@ -157,19 +197,32 @@ fn f1_golden_vectors() {
                     }
                 } else {
                     match engine {
-                        None => (false, "does-not-occur".to_string(), String::new(), "expected instant (root-find/algorithm)"),
+                        None => (
+                            false,
+                            "does-not-occur".to_string(),
+                            String::new(),
+                            "expected instant (root-find/algorithm)",
+                        ),
                         Some(ai) => {
                             let ((hh, mm), off) = parse_expected(expected);
                             let exp_date = base + Duration::days(off);
                             let exp_ts = tz
-                                .with_ymd_and_hms(exp_date.year(), exp_date.month(), exp_date.day(), hh, mm, 0)
+                                .with_ymd_and_hms(
+                                    exp_date.year(),
+                                    exp_date.month(),
+                                    exp_date.day(),
+                                    hh,
+                                    mm,
+                                    0,
+                                )
                                 .single()
                                 .unwrap()
                                 .timestamp();
                             let eng_secs = ai.unix_nanos.div_euclid(1_000_000_000);
                             let resid_s = eng_secs - exp_ts; // + = engine later than oracle
                             let within = resid_s.abs() <= ORACLE_TOLERANCE_SECS;
-                            let eng_dt = DateTime::from_timestamp_nanos(ai.unix_nanos).with_timezone(&tz);
+                            let eng_dt =
+                                DateTime::from_timestamp_nanos(ai.unix_nanos).with_timezone(&tz);
                             let day_ok = eng_dt.date_naive() == exp_date;
                             let ok = within && day_ok;
                             let hypo = if ok {
@@ -193,7 +246,11 @@ fn f1_golden_vectors() {
         } else {
             fail += 1;
         }
-        let exp_disp = if expected.is_empty() { "(absent)" } else { expected };
+        let exp_disp = if expected.is_empty() {
+            "(absent)"
+        } else {
+            expected
+        };
         out.push(format!(
             "{:<3} {:<34} {:<18} exp={:<10} eng={:<12} {:<8} {}",
             if ok { "OK" } else { "!!" },
@@ -210,7 +267,12 @@ fn f1_golden_vectors() {
     for r in &out {
         eprintln!("{r}");
     }
-    eprintln!("\nF1 golden vectors: {pass} ok, {fail} fail, {skipped} skipped (calendar_f3 — next pass)");
+    eprintln!(
+        "\nF1 golden vectors: {pass} ok, {fail} fail, {skipped} skipped (calendar_f3 — next pass)"
+    );
 
-    assert_eq!(fail, 0, "{fail} in-scope F1 row(s) missed the oracle; see table above");
+    assert_eq!(
+        fail, 0,
+        "{fail} in-scope F1 row(s) missed the oracle; see table above"
+    );
 }
