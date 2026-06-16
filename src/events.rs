@@ -121,7 +121,14 @@ fn find_crossing(
         let t = lo + (hi - lo) * (i as f64 / SCAN_STEPS as f64);
         let f = effective_alt_deg(t, site, body, refr) - target;
         if (prev_f < 0.0) != (f < 0.0) {
-            let increasing = f > prev_f;
+            // Rising vs setting is judged from the GEOMETRIC slope, not the effective (refracted)
+            // one: refraction can never turn a sunset into a sunrise. Using the effective slope
+            // here misfires at large elevation-dip targets, where Bennett refraction extrapolated
+            // below the horizon is non-monotonic and fakes an ascending crossing during the evening
+            // descent (ADR core-domain/0013 below-horizon caveat; bug found + fixed in /0017). For
+            // refraction-off reads (depression shitot) geometric == effective, so this is a no-op.
+            let increasing = effective_alt_deg(t, site, body, RefractionModel::None)
+                > effective_alt_deg(prev_t, site, body, RefractionModel::None);
             let want_increasing = matches!(dir, Direction::Rising);
             if increasing == want_increasing {
                 return Some(bisect(site, prev_t, t, target, body, refr));

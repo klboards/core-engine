@@ -36,11 +36,16 @@ fn end_offset_days(end: KiddushLevanaEnd) -> f64 {
 }
 
 /// Shift an absolute instant by a (possibly fractional) number of days, rounded to the nanosecond
-/// via `libm::round` (deterministic on every target — ADR core-domain/0010).
+/// via `libm::round` (deterministic on every target — ADR core-domain/0010). Uses **saturating**
+/// addition: the `AbsoluteInstant` i64-nanosecond domain tops out near 2262 CE, so a far-future
+/// (out-of-domain) molad clamps to the bound rather than overflowing — a defined value, never a
+/// debug panic / release silent-wrap (the "never silently wrong" invariant; bug found in /0017).
 #[inline]
 fn shift_days(t: AbsoluteInstant, days: f64) -> AbsoluteInstant {
     AbsoluteInstant {
-        unix_nanos: t.unix_nanos + round(days * NANOS_PER_DAY) as i64,
+        unix_nanos: t
+            .unix_nanos
+            .saturating_add(round(days * NANOS_PER_DAY) as i64),
     }
 }
 

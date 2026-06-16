@@ -138,7 +138,7 @@ fn main() {
             "jeru_sun_alt",
         ),
     ];
-    for &(kind, lat, lon, elev, ref_jd, angle, label) in rows {
+    let emit = |kind: u32, lat: f64, lon: f64, elev: f64, ref_jd: f64, angle: f64, label: &str| {
         let nanos = probe_zman_nanos(kind, lat, lon, elev, ref_jd, angle);
         println!(
             "{},{:016x},{:016x},{:016x},{:016x},{:016x},{},{}",
@@ -151,5 +151,65 @@ fn main() {
             nanos,
             label
         );
+    };
+    for &(kind, lat, lon, elev, ref_jd, angle, label) in rows {
+        emit(kind, lat, lon, elev, ref_jd, angle, label);
+    }
+
+    // ── Determinism breadth grid (ADR core-domain/0017): sweep the float paths across latitudes,
+    // longitudes, elevations, hemispheres and the full year so native==wasm is verified across the
+    // input domain, not just the curated edge points. (Values aren't oracle-checked here — this gate
+    // is purely cross-target bit-equality; correctness is the oracle suites.)
+    let sites: &[(f64, f64, f64, &str)] = &[
+        (31.778, 35.2354, 754.0, "jerusalem"),
+        (40.7128, -74.006, 10.0, "nyc"),
+        (0.0, 0.0, 0.0, "equator"),
+        (60.0, 10.0, 0.0, "oslo60"),
+        (22.30327, 98.50521, 1868.39, "highelev"), // the /0017 high-elevation crossing site
+        (-33.8688, 151.2093, 58.0, "sydney"),
+        (21.3069, -157.8583, 0.0, "honolulu"),
+        (1.35, 172.98, 0.0, "kiribati"),
+    ];
+    // Five reference JDs spanning a year (≈ every 73 days through 2025-26); not tied to real zmanim.
+    let day_jds: &[f64] = &[
+        2_460_690.0,
+        2_460_763.0,
+        2_460_836.0,
+        2_460_909.0,
+        2_460_982.0,
+    ];
+    // (kind, angle) for the F1/F2/coupling float paths anchored at local noon (or the instant itself).
+    let kinds: &[(u32, f64, &str)] = &[
+        (0, 16.1, "alot"),
+        (1, 8.5, "tzeit"),
+        (2, 0.0, "netz"),
+        (3, 0.0, "shkia"),
+        (4, 0.0, "chatzot"),
+        (5, 0.0, "sofzman_gra"),
+        (6, 0.0, "sofzman_mga"),
+        (9, 0.0, "moon_alt"),
+        (13, 0.0, "dayroll"),
+        (14, 0.0, "sun_alt"),
+    ];
+    for &(lat, lon, elev, sname) in sites {
+        for (di, &jd) in day_jds.iter().enumerate() {
+            let ref_jd = jd - lon / 360.0; // local-noon anchor
+            for &(kind, angle, kname) in kinds {
+                let mut label = String::new();
+                label.push_str("grid_");
+                label.push_str(sname);
+                label.push('_');
+                label.push_str(kname);
+                label.push('_');
+                label.push((b'0' + di as u8) as char);
+                emit(kind, lat, lon, elev, ref_jd, angle, &label);
+            }
+        }
+    }
+    // Year-based kinds (molad + both tekufa methods) across a span of Hebrew years.
+    for y in 5780..5792 {
+        emit(10, 0.0, 0.0, 0.0, y as f64, 7.0, "grid_molad");
+        emit(11, 0.0, 0.0, 0.0, y as f64, 2.0, "grid_tekufa_shmuel");
+        emit(12, 0.0, 0.0, 0.0, y as f64, 2.0, "grid_tekufa_ravada");
     }
 }

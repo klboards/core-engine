@@ -1,0 +1,38 @@
+# PROVISIONAL CI scaffold (ADR core-domain/0017). GitHub Actions is the host-native default, but the
+# pipeline-tooling decision is still OPEN (open-decisions #9 — "GitHub is the host; pipeline tooling is
+# TBD"). This workflow is a starting point, not a ratification of Actions; replace/extend when #9 lands.
+#
+# It runs the engine's correctness + determinism gates: fmt, clippy, the full oracle/property/fuzz/
+# regression/cross-engine test suite, the no_std wasm build, and the native==wasm FP-determinism check
+# (the one-core-no-drift guarantee). The offline-autonomy and cross-engine tests run as ordinary
+# `cargo test` (their oracle values are committed fixtures — no network, no JVM at test time).
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (stable) + wasm target
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup target add wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test (oracle + property + fuzz + regression + cross-engine + offline-autonomy)
+        run: cargo test
+      - name: Build freestanding no_std wasm
+        run: cargo build --no-default-features --target wasm32-unknown-unknown
+      - name: FP-determinism (native == wasm, exact)
+        run: |
+          cargo build --no-default-features --target wasm32-unknown-unknown
+          WASM=target/wasm32-unknown-unknown/debug/core_engine.wasm
+          cargo run -q --example fp_probe_native | node tools/fp_probe.mjs "$WASM"

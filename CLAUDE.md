@@ -33,11 +33,44 @@ the interface. Relinkability (org/0006) is satisfied by this architecture, not a
 the parameter-vector schema, `docs/adr/0002`) — the no-drift guarantee holds only within one
 engine choice.
 
-## Stack
+## Stack (DECIDED — ADR-0010)
 
-**TODO** — the engine's implementation **language is undecided** (klboards open decision #8) and
-is **not** picked by ADR-0008. Design intent: a **freestanding / no-GC** engine (org/0006
-runtime **Profile A**). Do not assume a language, framework, or build tool; mark unknowns TODO.
+**Rust**, **freestanding `no_std`** on-device (org/0006 runtime Profile A). One source → all targets
+(native + WASM) with **vendored deterministic FP** (`libm` on every build); F1/F2 double-precision, F3
+exact integer. `#![deny(unsafe_code)]` (the one C-ABI export in `ffi.rs` is the justified exception) +
+`#![deny(missing_docs)]`. The default `std` feature exists ONLY so the integration-test harness and the
+freestanding WASM artifact coexist; the engine source uses only `core` + `libm`. Custom target dir:
+this checkout builds into `/home/brx/Benjwho/forge/target` (not `./target`).
+
+## Current status (as of ADR-0017)
+
+**F1 (solar) / F2 (lunar) / F3 (Hebrew calendar) + the four ADR-0001 couplings are COMPLETE and
+validated.** Modules: `geometry`/`optics`/`events` (F1), `lunar` (F2), `calendar` (F3 + molad +
+day-type), `tekufa` (arithmetic seasons), `kiddush_levana`, `couplings` (the only F1↔F3 dependency
+point), `params` (knob catalog), `ffi` (FP-determinism probe / future relinkability boundary).
+
+- **Validated:** F1 golden 66/66 (Wolfram), F2 11/11, F3 38/38 (Wolfram+Hebcal+MyZmanim, incl.
+  Yom-Tov-Sheni realm divergence), tekufa/tal-u-matar 10/10 (Dec-4/5/6), couplings 3/3, properties
+  10/10, fuzz 3/3, regression 116/116, cross-engine 48/48 vs **KosherJava** (≈2.1 s), offline-autonomy.
+- **FP-determinism:** 456/456 exact native==wasm (the one-core-no-drift gate, /0010).
+- **NOT yet built (the boundary):** CBOR/CDDL/COSE serialization (decided /0011, unimplemented — the
+  engine still takes a Rust API + `Optics::default()`, not a signed param-vector/horizon-profile);
+  the C-ABI FFI beyond the probe; `HorizonMode::TerrainProfile` wiring (consumes provisioning output).
+- **Open gates / flags:** see `docs/adr/0016` §Open and `0017` §Open (molad meridian; bein-hashmashot
+  default; realm geography = provisioned input; high-latitude fallback; /0003 tolerance; input-domain
+  guarding; Rav-Ada anchor unvalidated; `AbsoluteInstant` ~2262 CE horizon). Israel high-res DTM
+  (/0004) is the sole open top-level hard-TODO.
+
+## Build & test
+
+```
+cargo test                                                   # full suite (oracle+property+fuzz+regression+cross-engine+offline)
+cargo build --no-default-features --target wasm32-unknown-unknown   # freestanding no_std artifact
+cargo run -q --example fp_probe_native | node tools/fp_probe.mjs <wasm>   # native==wasm determinism gate
+cargo clippy --all-targets -- -D warnings && cargo fmt --check
+BLESS_SNAPSHOT=1 cargo test --test regression                # regenerate the golden snapshot after an intended change
+```
+Cross-engine fixture regeneration (needs the LGPL jar, never vendored): see `tools/KosherDiff.java`.
 
 ## Conventions
 
