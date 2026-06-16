@@ -21,6 +21,7 @@ ADR-0001 and ADR-0002 **ratify the already-settled first-order model** so the de
 | [0006](0006-refraction-and-horizon-optics-seam.md) | Refraction & horizon optics: physics in F1, conventions as parameters | Seam 1 |
 | [0007](0007-civil-time-dst-edge-axiom.md) | Civil time / DST: edge axiom outside the core, versioned | Seam 2 |
 | [0008](0008-engine-posture-and-sourcing.md) | Engine posture: own primary behind a pluggable interface; zmanim-core as oracle + optional alternative | Posture (refines 0003) |
+| [0009](0009-parameter-vector-schema-and-interface-contract.md) | Parameter-vector schema + F1/F2/F3 interface contract | Resolves 0002 schema; closes 0006 refraction default |
 
 ## Ratified decisions handoff (decision + rationale, for Claude Code)
 
@@ -31,13 +32,18 @@ ADR-0001 and ADR-0002 **ratify the already-settled first-order model** so the de
 - **ADR-0005** — *Decision:* nothing about correctness may depend on the network; the network is for management/content/ruleset updates only, and the device stays correct with zero connectivity across a full multi-day chag+Shabbat. *Rationale:* the board matters most when the network is down or unwanted; correctness must fail-safe while freshness/management may degrade gracefully; staleness is handled by versioning with a bounded (labeling-only) failure mode.
 - **ADR-0006** — *Decision:* refraction and horizon optics are first-order physics inside F1, but the conventions (apparent vs geometric, refraction coefficient, sea-level vs terrain) are parameters; provisioning and runtime share one refraction model. *Rationale:* refraction defines the horizon-crossing instant so it must live in F1, but the choices are policy so they must be knobs — preventing both baking a convention into physics and exiling physics into a correction layer.
 - **ADR-0007** — *Decision:* civil time/DST live outside the core; the core stores absolute instants, and wall-clock is a boundary-only label from a versioned IANA/DST ruleset that is never trusted as fixed. *Rationale:* civil time is a mutable, decree-driven labeling convention, not a domain function; keeping it out preserves determinism and bounds the failure mode — a stale ruleset can mis-label but never make a zman wrong.
+- **ADR-0008** — *Decision:* build and own the primary F1/F2/F3 engine behind a pluggable engine interface; `zmanim-core` serves only as a build/test oracle and an optional customer-selectable alternative, never the foundation; engine-selection is a correctness-bearing knob handed to ADR-0002. *Rationale:* the correctness foundation must be ours, not a derivative-licensed dependency; relinkability is satisfied by architecture, not a license claim; two engines mean two correctness surfaces, so the no-drift guarantee holds only within one engine choice.
+- **ADR-0009** — *Decision:* ratify the parameter-vector schema + F1/F2/F3 interface contract (`docs/spec/parameter-vector-and-interface-contract.md`): zmanim as a typed read-spec union (data, not code), terrain/refraction/engine-selection as knobs, the four 0001 couplings as typed dependencies; default `refraction.model = standard-atmospheric` with `meeus-noaa`/`halachic-fixed-coefficient` as alternatives; required-vs-optional cut and `base → tenant → site` preset precedence fixed. *Rationale:* a single data-parameterized core stays oracle-testable and auditable (0002/0003); the standard-atmospheric model composes with terrain horizon profiles where a fixed coefficient degrades; layering and defaults stay outside the core so it resolves none. Resolves 0002's schema question and closes 0006's refraction default; serialization (0008) and Israel DTM (0004) stay open.
 
 ## Explicitly flagged open questions
 
 | Open question | Owned by | Note |
 |---|---|---|
-| Exact **parameter-vector schema** (names, types, units, defaults, required vs optional) | ADR-0002 | Blocks F1/F2/F3 interface finalization; referenced by 0001, 0006. |
-| **Israel high-resolution DTM source** | ADR-0004 | Until resolved, Israel sites fall back to Copernicus GLO-30 (30 m) — a precision gap in the market that values visible sunrise most. |
-| **Refraction model choice** | ADR-0006 | Standard (Bennett/Saemundsson) vs Meeus/NOAA default vs halachic fixed coefficient; must match between provisioning and runtime; settle with the parameter schema. |
+| ~~Exact **parameter-vector schema**~~ | ADR-0002 | **RESOLVED by ADR-0009** — schema + F1/F2/F3 interface contract ratified; living contract in `docs/spec/parameter-vector-and-interface-contract.md`. |
+| **Israel high-resolution DTM source** | ADR-0004 | **OPEN** — until resolved, Israel sites fall back to Copernicus GLO-30 (30 m), a precision gap in the market that values visible sunrise most. |
+| ~~**Refraction model choice**~~ | ADR-0006 | **RESOLVED by ADR-0009** — default `standard-atmospheric` (Bennett/Saemundsson-class); `meeus-noaa`/`halachic-fixed-coefficient` exposed as selectable alternatives; provisioning ↔ runtime share one model. |
+
+> Of the three top-level flags, two are now resolved (ADR-0009); **Israel high-resolution DTM
+> source** remains the sole open top-level question.
 
 Secondary unknowns recorded in-ADR (not among the three top-level flags): per-platform port/library and oracle source/tolerance (0003); certified offline-autonomy window `N` (0005); edge staleness-signaling policy and tzdata update cadence (0005/0007).

@@ -44,7 +44,7 @@ The knob set includes at least:
 
 ## Open questions
 
-- **The exact parameter-vector schema** — names, types, units, defaults, and which knobs are required vs optional. This is one of the three explicitly flagged open questions for the project and blocks F1/F2/F3 interface finalization. Owned here.
+- **The exact parameter-vector schema** — names, types, units, defaults, and which knobs are required vs optional. This is one of the three explicitly flagged open questions for the project and blocks F1/F2/F3 interface finalization. Owned here. **RESOLVED by ADR-0009** (2026-06-16): schema + F1/F2/F3 interface contract ratified; living contract in `docs/spec/parameter-vector-and-interface-contract.md`.
 
 ## Related
 

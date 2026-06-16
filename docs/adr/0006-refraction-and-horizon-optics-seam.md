@@ -40,7 +40,7 @@ These are halachic / convention decisions, not physics facts. The seam between "
 
 ## Open questions
 
-- **Refraction model choice** — explicitly flagged open question. Candidates include a standard atmospheric model (Bennett / Saemundsson-class), the Meeus/NOAA default already used by the baseline engines, or a halachically motivated fixed coefficient. To be decided as: a single default plus whether/which alternatives are exposed as parameters. Must be settled jointly with the parameter-vector schema (ADR-0002) and the provisioning pipeline (ADR-0004).
+- **Refraction model choice** — explicitly flagged open question. Candidates include a standard atmospheric model (Bennett / Saemundsson-class), the Meeus/NOAA default already used by the baseline engines, or a halachically motivated fixed coefficient. To be decided as: a single default plus whether/which alternatives are exposed as parameters. Must be settled jointly with the parameter-vector schema (ADR-0002) and the provisioning pipeline (ADR-0004). **RESOLVED by ADR-0009** (2026-06-16): default `standard-atmospheric` (Bennett/Saemundsson-class); `meeus-noaa` and `halachic-fixed-coefficient` exposed as selectable `refraction.model` alternatives; provisioning ↔ runtime must share one model.
 
 ## Related
 
