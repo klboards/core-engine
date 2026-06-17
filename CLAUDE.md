@@ -66,8 +66,9 @@ CBOR read-spec decode, so any posek vector composes with no remaining first-orde
   `LimbReference`; horizon-profile drives `HorizonMode::TerrainProfile`; read-spec decodes one read (the
   `zman_definitions` catalog stays second-order, /0019). CDDL contracts in `docs/spec/*.cddl`.
 - **NOT yet built:** **COSE_Sign1 verification** (↔ org/0006 §7 root-of-trust); the CBOR **writer**
-  (provisioning-builder, Phase B); the `zman_definitions` read-spec **catalog** (second-order/management)
-  + `solar.position_reference` (baked) + `obligation_sense`/rounding plumbing; `meeus-noaa` /
+  (provisioning-builder, Phase B); the `zman_definitions` read-spec **catalog** (second-order/management
+  — home: the `halacha-model` context, org/0010) + `solar.position_reference` (baked) +
+  `obligation_sense`/rounding plumbing; `meeus-noaa` /
   `halachic-fixed-coefficient` refraction models.
 - **Open gates / flags:** see `docs/adr/0016` §Open, `0017` §Open, `0018` §Open, `0020` §Open (molad meridian;
   bein-hashmashot default; realm geography = provisioned input; high-latitude fallback; /0003 tolerance;

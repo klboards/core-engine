@@ -7,6 +7,10 @@
   *over* first-order outputs — **not** in the deterministic core. Records the one demonstration test
   (`tests/second_order.rs`) and the only genuine first-order mechanism gaps. No knobs added to the core.
 
+> **Follow-ups (later ADRs):** the three first-order gaps in §4 are now **closed by core-domain/0020**
+> (`limb_reference`, `fixed-minute-offset`, `decode_read_spec`). The second-order layer's home is the
+> **`halacha-model`** bounded context (**org/0010**); its knowledge sources + license-gating are org/0011.
+
 ## Context
 
 Pressing on "what about the other poskim?" surfaced that sunrise/zmanim disagreement is **multi-axis**,
