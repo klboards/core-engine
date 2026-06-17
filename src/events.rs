@@ -12,7 +12,8 @@
 use crate::geometry::{solar_altitude_deg, solar_azimuth_deg};
 use crate::lunar::{moon_altitude_deg, moon_semidiameter_deg};
 use crate::optics::{
-    horizon_apparent_target_deg, horizon_target_deg, semidiameter_deg, RefractionModel,
+    horizon_apparent_target_deg, horizon_target_deg, semidiameter_deg, LimbReference,
+    RefractionModel,
 };
 use crate::params::Optics;
 use crate::units::GeometricAltitude;
@@ -81,6 +82,17 @@ pub enum ReadSpec {
         start: Bound,
         /// End bound of the proportional day.
         end: Bound,
+    },
+    /// Fixed or seasonal minute offset from a base bound — `base ± offset_min` (ADR core-domain/0020).
+    /// `seasonal = None` ⇒ literal clock minutes; `Some((start,end))` ⇒ *zmaniyos* minutes scaled by
+    /// that day's sha'ah zmanit over the `(start,end)` span. Expresses MA-72 (alot = netz−72), R"T tzeit.
+    FixedMinuteOffset {
+        /// The anchor bound (netz / shkia / a depression angle).
+        base: Bound,
+        /// Signed offset in minutes (negative = before the base).
+        offset_min: f64,
+        /// `None` = fixed clock minutes; `Some((start,end))` = zmaniyos minutes over that day span.
+        seasonal: Option<(Bound, Bound)>,
     },
 }
 
@@ -196,7 +208,7 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
         }
         ReadSpec::HorizonCrossing { dir } => {
             let (lo, hi) = window(ref_jd, dir);
-            let target = horizon_apparent_target_deg(optics.horizon_mode, site.elev_m);
+            let target = horizon_apparent_target_deg(optics.horizon_mode, site.elev_m, optics.limb);
             find_crossing(
                 site,
                 lo,
@@ -234,6 +246,23 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
             let s = bound_jd(site, ref_jd, start, optics)?;
             let e = bound_jd(site, ref_jd, end, optics)?;
             Some(s + fraction * (e - s))
+        }
+        ReadSpec::FixedMinuteOffset {
+            base,
+            offset_min,
+            seasonal,
+        } => {
+            let base_jd = bound_jd(site, ref_jd, base, optics)?;
+            let offset_days = match seasonal {
+                // Fixed clock minutes: a literal slice of the 1440-minute civil day.
+                None => offset_min / 1440.0,
+                // Zmaniyos minutes: scaled by that day's sha'ah zmanit (span / 12).
+                Some((start, end)) => {
+                    let span = proportional_span_days(site, ref_jd, start, end, optics)?;
+                    offset_min / 60.0 * span / 12.0
+                }
+            };
+            Some(base_jd + offset_days)
         }
     }
 }
@@ -301,7 +330,8 @@ pub fn moon_rise_set(
     optics: &Optics,
 ) -> ZmanResult {
     let sd = moon_semidiameter_deg(day_start_jd + 0.5);
-    let target = horizon_target_deg(optics.horizon_mode, site.elev_m, sd);
+    // The Moon's rise/set is conventionally its upper limb (first/last visible edge).
+    let target = horizon_target_deg(optics.horizon_mode, site.elev_m, sd, LimbReference::Upper);
     find_crossing(
         site,
         day_start_jd,
@@ -336,7 +366,10 @@ pub fn terrain_horizon_crossing(
     // Apparent-altitude target at time `t`: the Sun's upper limb clears the **signed skyline altitude**
     // at its azimuth, so the centre altitude at the crossing is `horizon_angle − semidiameter` (a
     // mountain at +angle delays sunrise; a sea-horizon dip is a negative angle, reproducing Visible).
-    let target_at = |t: f64| profile.horizon_angle_deg_at(solar_azimuth_deg(t, site)) - sd;
+    let target_at = |t: f64| {
+        profile.horizon_angle_deg_at(solar_azimuth_deg(t, site))
+            - optics.limb.semidiameter_factor() * sd
+    };
 
     let mut prev_t = lo;
     let mut prev_f = effective_alt_deg(lo, site, Body::Sun, refr) - target_at(lo);

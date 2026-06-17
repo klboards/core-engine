@@ -3,11 +3,12 @@
 //! engine's typed knobs, the azimuth interpolation + binding check, and that malformed/bad input
 //! yields a typed `DecodeError` (never a panic — the /0017 invariant, extended to the reader).
 
-use core_engine::optics::{HorizonMode, RefractionModel};
+use core_engine::events::{Bound, Direction, ReadSpec};
+use core_engine::optics::{HorizonMode, LimbReference, RefractionModel};
 use core_engine::params::{Realm, TalUmatarBasis, TekufaMethod};
 use core_engine::wire::{
-    decode_horizon_profile, decode_parameter_vector, DecodeError, HorizonProfile, ParameterVector,
-    SCHEMA_VERSION,
+    decode_horizon_profile, decode_parameter_vector, decode_read_spec, BoundWire, DecodeError,
+    HorizonProfile, ParameterVector, ReadSpecWire, SCHEMA_VERSION,
 };
 use core_engine::Site;
 
@@ -70,13 +71,129 @@ fn parameter_vector_rejects_bad_header_and_unimplemented() {
         decoded.resolve_optics().unwrap_err(),
         DecodeError::Unimplemented
     );
+    // /0020: the limb reference is now a resolved knob, NOT Unimplemented (it flipped here).
     let mut pv = valid_pv();
     pv.solar_limb_reference = 1; // center-limb
+    let decoded = decode_parameter_vector(&minicbor::to_vec(&pv).unwrap()).unwrap();
+    assert_eq!(
+        decoded.resolve_optics().unwrap().limb,
+        LimbReference::Center
+    );
+    decoded
+        .check_fixed_behaviour()
+        .expect("limb is no longer a fixed behaviour (/0020)");
+    let mut pv = valid_pv();
+    pv.solar_limb_reference = 9; // out of range
+    let decoded = decode_parameter_vector(&minicbor::to_vec(&pv).unwrap()).unwrap();
+    assert_eq!(decoded.resolve_optics().unwrap_err(), DecodeError::Range);
+    // solar_position_reference (geometric-everywhere) remains the baked/unimplemented axis.
+    let mut pv = valid_pv();
+    pv.solar_position_reference = 1; // geometric
     let decoded = decode_parameter_vector(&minicbor::to_vec(&pv).unwrap()).unwrap();
     assert_eq!(
         decoded.check_fixed_behaviour().unwrap_err(),
         DecodeError::Unimplemented
     );
+}
+
+#[test]
+fn read_spec_round_trip_all_variants() {
+    // Construct each wire variant, encode (test-only minicbor encoder), decode, and assert it maps to
+    // the expected engine ReadSpec. Values are chosen exact under the fixed-point quantization
+    // (18° = 18_000_000 µ°; 1/4 = 0.25; −72 min = −72_000 milli-min) so the f64 compare is exact.
+    let cases = [
+        (
+            ReadSpecWire::DepressionAngle {
+                angle_microdeg: 18_000_000,
+                dir: 0,
+            },
+            ReadSpec::DepressionAngle {
+                angle_deg: 18.0,
+                dir: Direction::Rising,
+            },
+        ),
+        (
+            ReadSpecWire::HorizonCrossing { dir: 1 },
+            ReadSpec::HorizonCrossing {
+                dir: Direction::Setting,
+            },
+        ),
+        (ReadSpecWire::ExtremumMidpoint, ReadSpec::ExtremumMidpoint),
+        (
+            ReadSpecWire::Proportional {
+                num: 1,
+                den: 4,
+                start: BoundWire::Netz,
+                end: BoundWire::Shkia,
+            },
+            ReadSpec::Proportional {
+                fraction: 0.25,
+                start: Bound::Netz,
+                end: Bound::Shkia,
+            },
+        ),
+        (
+            ReadSpecWire::FixedMinuteOffset {
+                base: BoundWire::Netz,
+                offset_milli_min: -72_000,
+                seasonal_start: None,
+                seasonal_end: None,
+            },
+            ReadSpec::FixedMinuteOffset {
+                base: Bound::Netz,
+                offset_min: -72.0,
+                seasonal: None,
+            },
+        ),
+        (
+            ReadSpecWire::FixedMinuteOffset {
+                base: BoundWire::Shkia,
+                offset_milli_min: 72_000,
+                seasonal_start: Some(BoundWire::Netz),
+                seasonal_end: Some(BoundWire::Shkia),
+            },
+            ReadSpec::FixedMinuteOffset {
+                base: Bound::Shkia,
+                offset_min: 72.0,
+                seasonal: Some((Bound::Netz, Bound::Shkia)),
+            },
+        ),
+    ];
+    for (wire, expected) in cases {
+        let bytes = minicbor::to_vec(&wire).expect("encode read-spec");
+        assert_eq!(
+            decode_read_spec(&bytes).expect("decode read-spec"),
+            expected
+        );
+    }
+}
+
+#[test]
+fn read_spec_malformed_or_out_of_range_never_panics() {
+    for bad in [&b""[..], &[0xFF][..], &[0x00][..], &[0x9F, 0xFF][..]] {
+        assert!(decode_read_spec(bad).is_err());
+    }
+    // Bad direction discriminant → Range.
+    let bytes = minicbor::to_vec(ReadSpecWire::HorizonCrossing { dir: 9 }).unwrap();
+    assert_eq!(decode_read_spec(&bytes).unwrap_err(), DecodeError::Range);
+    // Zero denominator → Range.
+    let bytes = minicbor::to_vec(ReadSpecWire::Proportional {
+        num: 1,
+        den: 0,
+        start: BoundWire::Netz,
+        end: BoundWire::Shkia,
+    })
+    .unwrap();
+    assert_eq!(decode_read_spec(&bytes).unwrap_err(), DecodeError::Range);
+    // Half-specified seasonal span → Range.
+    let bytes = minicbor::to_vec(ReadSpecWire::FixedMinuteOffset {
+        base: BoundWire::Netz,
+        offset_milli_min: 0,
+        seasonal_start: Some(BoundWire::Netz),
+        seasonal_end: None,
+    })
+    .unwrap();
+    assert_eq!(decode_read_spec(&bytes).unwrap_err(), DecodeError::Range);
 }
 
 #[test]

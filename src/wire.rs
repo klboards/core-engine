@@ -8,7 +8,8 @@
 //! Contract shape: integer-keyed CBOR maps; see `docs/spec/parameter-vector.cddl` +
 //! `docs/spec/horizon-profile.cddl`.
 
-use crate::optics::{HorizonMode, RefractionModel};
+use crate::events::{Bound, Direction, ReadSpec};
+use crate::optics::{HorizonMode, LimbReference, RefractionModel};
 use crate::params::{
     AdarAnniversaryRule, KiddushLevanaEnd, KiddushLevanaStart, Optics, Realm, TalUmatarBasis,
     TekufaMethod,
@@ -20,6 +21,8 @@ use minicbor::{Decode, Encode};
 /// Milliarcminutes per degree (1 mam = 1/1000 arcminute = 1/60000°). The fixed-point unit for the
 /// packed horizon-angle array — ~0.06″ resolution, far below the ±1-min/arc-second bar (ADR-0018).
 const MAM_PER_DEG: f64 = 60_000.0;
+/// Microdegrees per degree — the fixed-point unit for read-spec depression angles (≈3.6 mas).
+const MICRODEG_PER_DEG: f64 = 1_000_000.0;
 /// Binding tolerances (φ/λ in degrees, h in metres) for matching a profile to a site (0004/0006).
 const BIND_TOL_DEG: f64 = 1.0e-3;
 const BIND_TOL_M: f64 = 5.0;
@@ -129,10 +132,18 @@ impl ParameterVector {
             1 | 2 => return Err(DecodeError::Unimplemented),        // meeus-noaa / halachic-fixed
             _ => return Err(DecodeError::Range),
         };
+        // Netz-definition axis (ADR core-domain/0020): 0 upper / 1 center / 2 lower limb.
+        let limb = match self.solar_limb_reference {
+            0 => LimbReference::Upper,
+            1 => LimbReference::Center,
+            2 => LimbReference::Lower,
+            _ => return Err(DecodeError::Range),
+        };
         Ok(Optics {
             horizon_refraction,
             depression_refraction,
             horizon_mode,
+            limb,
         })
     }
 
@@ -184,19 +195,170 @@ impl ParameterVector {
         };
         Ok((start, end))
     }
-    /// Validate the currently-fixed-behaviour knobs (ADR-0018 findings): the engine's apparent/
-    /// geometric split and upper-limb reference are baked per /0013, so the parameter-vector values
-    /// must match — `upper-limb` (0) and `apparent` (0) — else the request names behaviour the engine
-    /// does not yet vary. Surfaced, not silently ignored.
+    /// Validate the remaining fixed-behaviour knob (ADR-0018 finding, narrowed by /0020): the engine's
+    /// apparent/geometric split is still baked per /0013, so `solar_position_reference` must be
+    /// `apparent` (0) — else the request names behaviour the engine does not yet vary. The limb
+    /// reference is **no longer fixed** (resolved by [`Self::resolve_optics`] since /0020).
     pub fn check_fixed_behaviour(&self) -> Result<(), DecodeError> {
-        if self.solar_limb_reference != 0 {
-            return Err(DecodeError::Unimplemented); // center/lower-limb not yet a knob
-        }
         if self.solar_position_reference != 0 {
             return Err(DecodeError::Unimplemented); // geometric-everywhere not yet a knob
         }
         Ok(())
     }
+}
+
+/// Wire form of a proportional-day [`Bound`] (ADR core-domain/0020): integer-keyed, float-free —
+/// depression angles are fixed-point **microdegrees**, directions `0 = rising / 1 = setting`.
+#[derive(Clone, Debug, Decode, Encode)]
+pub enum BoundWire {
+    /// Sunrise (apparent horizon crossing).
+    #[n(0)]
+    Netz,
+    /// Sunset (apparent horizon crossing).
+    #[n(1)]
+    Shkia,
+    /// A depression-angle bound.
+    #[n(2)]
+    Depression {
+        /// Depression magnitude, microdegrees.
+        #[n(0)]
+        angle_microdeg: i32,
+        /// 0 = rising (morning), 1 = setting (evening).
+        #[n(1)]
+        dir: u8,
+    },
+}
+
+/// Wire form of a [`ReadSpec`] (ADR core-domain/0020): the complete five-variant read-spec union as an
+/// integer-keyed, float-free CBOR tagged union. Angles are microdegrees; the proportional fraction is
+/// an exact `num/den` rational; minute offsets are fixed-point **milli-minutes**. The engine decodes
+/// *one* read here; the `zman_definitions` catalog (ids→reads) stays second-order (management; /0019).
+#[derive(Clone, Debug, Decode, Encode)]
+pub enum ReadSpecWire {
+    /// Geometric depression at `angle_microdeg`.
+    #[n(0)]
+    DepressionAngle {
+        /// Depression magnitude, microdegrees.
+        #[n(0)]
+        angle_microdeg: i32,
+        /// 0 = rising, 1 = setting.
+        #[n(1)]
+        dir: u8,
+    },
+    /// Apparent sunrise/sunset.
+    #[n(1)]
+    HorizonCrossing {
+        /// 0 = rising (netz), 1 = setting (shkia).
+        #[n(0)]
+        dir: u8,
+    },
+    /// Chatzot = midpoint(netz, shkia).
+    #[n(2)]
+    ExtremumMidpoint,
+    /// Proportional `start + (num/den)·(end − start)`.
+    #[n(3)]
+    Proportional {
+        /// Fraction numerator.
+        #[n(0)]
+        num: i32,
+        /// Fraction denominator (must be non-zero).
+        #[n(1)]
+        den: i32,
+        /// Start bound of the proportional day.
+        #[n(2)]
+        start: BoundWire,
+        /// End bound of the proportional day.
+        #[n(3)]
+        end: BoundWire,
+    },
+    /// `base ± offset` in milli-minutes; seasonal when both `seasonal_*` bounds are present.
+    #[n(4)]
+    FixedMinuteOffset {
+        /// The anchor bound.
+        #[n(0)]
+        base: BoundWire,
+        /// Signed offset, milli-minutes (negative = before the base).
+        #[n(1)]
+        offset_milli_min: i32,
+        /// Seasonal-span start bound (present iff `seasonal_end` is).
+        #[n(2)]
+        seasonal_start: Option<BoundWire>,
+        /// Seasonal-span end bound (present iff `seasonal_start` is).
+        #[n(3)]
+        seasonal_end: Option<BoundWire>,
+    },
+}
+
+#[inline]
+fn dir_of(d: u8) -> Result<Direction, DecodeError> {
+    match d {
+        0 => Ok(Direction::Rising),
+        1 => Ok(Direction::Setting),
+        _ => Err(DecodeError::Range),
+    }
+}
+
+fn bound_of(b: BoundWire) -> Result<Bound, DecodeError> {
+    Ok(match b {
+        BoundWire::Netz => Bound::Netz,
+        BoundWire::Shkia => Bound::Shkia,
+        BoundWire::Depression {
+            angle_microdeg,
+            dir,
+        } => Bound::Depression {
+            angle_deg: angle_microdeg as f64 / MICRODEG_PER_DEG,
+            dir: dir_of(dir)?,
+        },
+    })
+}
+
+/// Decode + validate a single read-spec (ADR core-domain/0020). Returns a typed [`DecodeError`];
+/// never panics. Closes the last first-order intake gap: any of the five reads decodes from CBOR.
+pub fn decode_read_spec(bytes: &[u8]) -> Result<ReadSpec, DecodeError> {
+    let w: ReadSpecWire = minicbor::decode(bytes).map_err(|_| DecodeError::Cbor)?;
+    Ok(match w {
+        ReadSpecWire::DepressionAngle {
+            angle_microdeg,
+            dir,
+        } => ReadSpec::DepressionAngle {
+            angle_deg: angle_microdeg as f64 / MICRODEG_PER_DEG,
+            dir: dir_of(dir)?,
+        },
+        ReadSpecWire::HorizonCrossing { dir } => ReadSpec::HorizonCrossing { dir: dir_of(dir)? },
+        ReadSpecWire::ExtremumMidpoint => ReadSpec::ExtremumMidpoint,
+        ReadSpecWire::Proportional {
+            num,
+            den,
+            start,
+            end,
+        } => {
+            if den == 0 {
+                return Err(DecodeError::Range);
+            }
+            ReadSpec::Proportional {
+                fraction: num as f64 / den as f64,
+                start: bound_of(start)?,
+                end: bound_of(end)?,
+            }
+        }
+        ReadSpecWire::FixedMinuteOffset {
+            base,
+            offset_milli_min,
+            seasonal_start,
+            seasonal_end,
+        } => {
+            let seasonal = match (seasonal_start, seasonal_end) {
+                (None, None) => None,
+                (Some(s), Some(e)) => Some((bound_of(s)?, bound_of(e)?)),
+                _ => return Err(DecodeError::Range), // half-specified span is malformed
+            };
+            ReadSpec::FixedMinuteOffset {
+                base: bound_of(base)?,
+                offset_min: offset_milli_min as f64 / 1000.0,
+                seasonal,
+            }
+        }
+    })
 }
 
 /// The decoded **horizon profile** (ADR core-domain/0004 + /0011, integer-keyed CBOR map): binding

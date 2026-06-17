@@ -1,0 +1,42 @@
+; klboards read-spec — cross-repo wire contract (RFC 8610 CDDL).
+; ADR core-domain/0009 (the read-spec union) · /0020 (vocabulary complete) · /0011 · /0018.
+;
+; A SINGLE zman read off the F1 altitude curve. The complete five-variant union (DepressionAngle,
+; HorizonCrossing, ExtremumMidpoint, Proportional, FixedMinuteOffset). CDE / core-deterministic,
+; fixed-point integers (float-free): angles in MICRODEGREES, the proportional fraction as a num/den
+; rational, minute offsets in MILLI-MINUTES, directions 0=rising / 1=setting. The WRITER is
+; provisioning-builder; the engine is the reader (`wire::decode_read_spec`, the normative source).
+;
+; The `zman_definitions` CATALOG (ids -> reads, which named zmanim a tenant wants) is NOT here: it is
+; SECOND-ORDER (management/provisioning, ADR core-domain/0019). The engine decodes one read; the
+; management layer iterates the catalog and calls the engine per read.
+;
+; Encoding note: this mirrors minicbor's tagged-union derive — each variant is a 2-element array
+; [ variant-index : uint, [ positional fields... ] ]. An Option<bound> field is the encoded `bound`
+; when present and CBOR `null` when absent (a seasonal span is present iff BOTH bounds are).
+
+read-spec = depression-angle
+          / horizon-crossing
+          / extremum-midpoint
+          / proportional
+          / fixed-minute-offset
+
+depression-angle    = [0, [angle-microdeg, dir]]                 ; geometric depression (refraction-off default)
+horizon-crossing    = [1, [dir]]                                 ; apparent netz/shkia (limb + dip + refraction)
+extremum-midpoint   = [2, []]                                    ; chatzot = midpoint(netz, shkia)
+proportional        = [3, [num, den, bound, bound]]              ; start + (num/den)*(end - start); den /= 0
+fixed-minute-offset = [4, [bound, offset-milli-min, opt-bound, opt-bound]]
+                                                                 ; base +- offset; seasonal iff both opt-bound present
+
+; A bound of the proportional ("seasonal-hour") day, same tagged-union shape.
+bound = bound-netz / bound-shkia / bound-depression
+bound-netz       = [0, []]
+bound-shkia      = [1, []]
+bound-depression = [2, [angle-microdeg, dir]]
+opt-bound        = bound / null
+
+angle-microdeg   = int     ; degrees * 1e6 (depression magnitude or, for terrain, signed skyline angle)
+offset-milli-min = int     ; signed minutes * 1000 (negative = before the base bound)
+num              = int
+den              = int     ; non-zero
+dir              = 0 / 1   ; 0 = rising (morning), 1 = setting (evening)

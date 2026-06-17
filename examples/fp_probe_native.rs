@@ -137,6 +137,35 @@ fn main() {
             0.0,
             "jeru_sun_alt",
         ),
+        // Read-spec vocabulary (ADR core-domain/0020): the lower-limb ±semidiameter shift and the
+        // fixed/seasonal minute-offset float paths — new arithmetic the native==wasm gate must cover.
+        (
+            17,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_755.0,
+            0.0,
+            "jeru_netz_lower_limb",
+        ),
+        (
+            18,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_755.0,
+            -72.0,
+            "jeru_alot72_fixed",
+        ),
+        (
+            19,
+            31.778,
+            35.2354,
+            754.0,
+            2_460_755.0,
+            -72.0,
+            "jeru_alot72_seasonal",
+        ),
     ];
     let emit = |kind: u32, lat: f64, lon: f64, elev: f64, ref_jd: f64, angle: f64, label: &str| {
         let nanos = probe_zman_nanos(kind, lat, lon, elev, ref_jd, angle);
@@ -191,7 +220,10 @@ fn main() {
         (13, 0.0, "dayroll"),
         (14, 0.0, "sun_alt"),
         (15, 0.0, "azimuth"),
-        (16, 0.5, "terrain"), // synthetic +0.5° skyline crossing
+        (16, 0.5, "terrain"),           // synthetic +0.5° skyline crossing
+        (17, 0.0, "netz_lower"),        // /0020 lower-limb (±semidiameter shift)
+        (18, -72.0, "alot72_fixed"),    // /0020 fixed-minute offset (MA-72)
+        (19, -72.0, "alot72_seasonal"), // /0020 seasonal/zmaniyos minute offset
     ];
     for &(lat, lon, elev, sname) in sites {
         for (di, &jd) in day_jds.iter().enumerate() {

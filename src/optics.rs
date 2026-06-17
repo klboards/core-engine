@@ -66,6 +66,34 @@ pub enum HorizonMode {
     TerrainProfile,
 }
 
+/// Which edge of the sun's disc defines the rise/set event (`solar.limb_reference`, spec §1.B) — the
+/// netz-definition dispute. Upper limb = the sun first appears (majority; Biur Halacha 58); lower limb
+/// = the whole disc has risen / "end of ascent" (Ish Matzliach; Yalkut Yosef 89:3); center = disc
+/// centre. A `±semidiameter` shift on the horizon target — a convention-free *mechanism* knob (the
+/// core resolves none; ADR core-domain/0020). Default `Upper` reproduces the pre-0020 behaviour.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum LimbReference {
+    /// Upper limb tangent to the horizon — the sun first appears (default).
+    #[default]
+    Upper,
+    /// Disc centre at the horizon.
+    Center,
+    /// Lower limb tangent — the whole disc has risen (end of ascent).
+    Lower,
+}
+
+impl LimbReference {
+    /// Semidiameter multiplier in the horizon target `−(factor·sd + dip)`: Upper +1, Center 0, Lower −1.
+    #[inline]
+    pub fn semidiameter_factor(self) -> f64 {
+        match self {
+            LimbReference::Upper => 1.0,
+            LimbReference::Center => 0.0,
+            LimbReference::Lower => -1.0,
+        }
+    }
+}
+
 /// Apparent solar radius (degrees), ~16′. Distance-based refinement is a TODO; fixed value is
 /// within the ±1-min bar.
 #[inline]
@@ -99,13 +127,18 @@ fn horizon_dip_deg(mode: HorizonMode, elev_m: f64) -> f64 {
 /// separately (by `events::effective_alt_deg`), so this is the *geometric* target the apparent limb
 /// reaches the (dipped) horizon at. Shared by the Sun (F1) and Moon (F2).
 #[inline]
-pub fn horizon_target_deg(mode: HorizonMode, elev_m: f64, semidiameter_deg: f64) -> f64 {
-    -(semidiameter_deg + horizon_dip_deg(mode, elev_m))
+pub fn horizon_target_deg(
+    mode: HorizonMode,
+    elev_m: f64,
+    semidiameter_deg: f64,
+    limb: LimbReference,
+) -> f64 {
+    -(limb.semidiameter_factor() * semidiameter_deg + horizon_dip_deg(mode, elev_m))
 }
 
 /// Apparent sun-centre altitude (degrees, negative) at the sunrise/sunset event:
-/// `−(semidiameter + dip)` per the horizon mode (ADR core-domain/0013).
+/// `−(limb_sign·semidiameter + dip)` per the horizon mode + limb (ADR core-domain/0013/0020).
 #[inline]
-pub fn horizon_apparent_target_deg(mode: HorizonMode, elev_m: f64) -> f64 {
-    horizon_target_deg(mode, elev_m, semidiameter_deg())
+pub fn horizon_apparent_target_deg(mode: HorizonMode, elev_m: f64, limb: LimbReference) -> f64 {
+    horizon_target_deg(mode, elev_m, semidiameter_deg(), limb)
 }

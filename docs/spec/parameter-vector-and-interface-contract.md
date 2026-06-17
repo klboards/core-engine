@@ -97,6 +97,14 @@ opinions additive-without-code (0002).
 | `proportional` | `fraction`; `bounds` (optional reference pair, else `proportional_day_bounds`); `obligation_sense` | rational; pair<reference>; enum | fraction of day | A fraction of the seasonal-hour day between two bounding reads (most "X seasonal hours" zmanim). |
 | `extremum` | `kind` ∈ {solar-noon, solar-midnight} | enum | — | Chatzot — the curve's extremum/midpoint; needs no angle. |
 
+> **Built — ADR core-domain/0020:** all five variants are implemented **and CBOR-decodable**
+> (`wire::decode_read_spec`; contract `docs/spec/read-spec.cddl`), and `solar.limb_reference
+> {upper,center,lower}` resolves as a `±semidiameter` shift on the horizon target — so the first-order
+> read vocabulary is **complete** (any posek vector composes; no remaining first-order gap). The
+> `zman_definitions` **map itself stays second-order** (the management layer iterates ids→reads and
+> calls the engine per read; ADR-0019) — the engine decodes *one* read. `obligation_sense` + rounding
+> stay management-side.
+
 > `obligation_sense ∈ {opens, closes, neutral}` feeds the rounding policy (§1.E): a read that
 > *closes* an obligation rounds toward earlier to be stringent; one that *opens* rounds toward
 > later. The core does not decide stringency direction per zman — it derives direction from
@@ -248,7 +256,8 @@ device-side **COSE verification** (↔ org/0006 §7 root-of-trust) and **one-vs-
 > Spec↔engine gaps flagged by 0018 (to reconcile here later): `refraction.model` is broader than the
 > engine's `RefractionModel` (`meeus-noaa` / `halachic-fixed-coefficient` not yet implemented);
 > `horizon.mode` should enumerate three modes (`sea-level` / **`visible`** / `terrain-profile`, the
-> middle one added in /0013); `solar.position_reference` / `solar.limb_reference` are currently baked.
+> middle one added in /0013); `solar.position_reference` is currently baked (apparent-everywhere);
+> **`solar.limb_reference` is now implemented (/0020)** — the netz-definition axis is a live knob.
 
 ---
 

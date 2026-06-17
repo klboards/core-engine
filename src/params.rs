@@ -3,7 +3,7 @@
 //! enums (no_std, alloc-free; CBOR-ready per /0011) so a posek/community supplies the vector and
 //! the zman is a pure, auditable, bit-reproducible function of (place, date, shita).
 
-use crate::optics::{HorizonMode, RefractionModel};
+use crate::optics::{HorizonMode, LimbReference, RefractionModel};
 
 /// Rounding stringency direction (halachic l'kula / l'chumra), composed with a read's
 /// [`ObligationSense`] so the core derives the per-zman direction (never hard-codes "round down").
@@ -107,6 +107,9 @@ pub struct Optics {
     pub depression_refraction: RefractionModel,
     /// Sea-level vs visible vs terrain horizon.
     pub horizon_mode: HorizonMode,
+    /// Which solar limb defines netz/shkia — the netz-definition dispute (ADR core-domain/0020).
+    /// Default `Upper` (the sun first appears); a `±semidiameter` shift, a mechanism knob not policy.
+    pub limb: LimbReference,
 }
 
 impl Default for Optics {
@@ -117,6 +120,7 @@ impl Default for Optics {
             horizon_refraction: RefractionModel::Bennett,
             depression_refraction: RefractionModel::None,
             horizon_mode: HorizonMode::Visible,
+            limb: LimbReference::Upper,
         }
     }
 }

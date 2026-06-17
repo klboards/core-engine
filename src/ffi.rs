@@ -13,7 +13,7 @@ use crate::events::{
 };
 use crate::geometry::solar_azimuth_deg;
 use crate::lunar::moon_altitude_deg;
-use crate::optics::RefractionModel;
+use crate::optics::{LimbReference, RefractionModel};
 use crate::params::{Optics, TekufaMethod};
 use crate::tekufa::{tekufa_instant, Season};
 use crate::units::GeometricAltitude;
@@ -32,8 +32,11 @@ pub const DOES_NOT_OCCUR: i64 = i64::MIN;
 /// instant; returns the rolled Hebrew Rata Die, or sentinel if the boundary does-not-occur) ·
 /// **14 sun effective altitude** (the night predicate; returns `round(deg·1e9)`). Intake/terrain
 /// (ADR core-domain/0018): **15 solar azimuth** (compass, `round(deg·1e9)`) · **16 TerrainProfile
-/// crossing** (`angle`=constant skyline angle deg; synthetic profile). `angle` used by
-/// kinds 0/1/10/11/12/16.
+/// crossing** (`angle`=constant skyline angle deg; synthetic profile). Read-spec vocabulary
+/// (ADR core-domain/0020): **17 lower-limb netz** (the ±semidiameter limb-shift float path) ·
+/// **18 fixed-minute-offset netz** (`angle`=offset minutes, fixed clock) · **19 seasonal/zmaniyos
+/// minute-offset netz** (`angle`=offset minutes scaled by the netz→shkia span). `angle` used by
+/// kinds 0/1/10/11/12/16/18/19.
 // The crate denies unsafe_code; this single C-ABI export (the determinism-harness / future
 // ADR-0003 relinkability boundary) is the one justified exception.
 #[allow(unsafe_code)]
@@ -132,6 +135,23 @@ pub extern "C" fn probe_zman_nanos(
             .map(|ai| ai.unix_nanos)
             .unwrap_or(DOES_NOT_OCCUR);
         }
+        17 => {
+            // Lower-limb netz (/0020): the whole-disc-up reference — a +2·semidiameter target shift.
+            let optics = Optics {
+                limb: LimbReference::Lower,
+                ..Optics::default()
+            };
+            return read_instant(
+                &site,
+                ref_jd,
+                ReadSpec::HorizonCrossing {
+                    dir: Direction::Rising,
+                },
+                &optics,
+            )
+            .map(|ai| ai.unix_nanos)
+            .unwrap_or(DOES_NOT_OCCUR);
+        }
         _ => {}
     }
     let spec = match kind {
@@ -165,6 +185,16 @@ pub extern "C" fn probe_zman_nanos(
                 angle_deg: 16.1,
                 dir: Direction::Setting,
             },
+        },
+        18 => ReadSpec::FixedMinuteOffset {
+            base: Bound::Netz,
+            offset_min: angle_deg, // fixed clock minutes
+            seasonal: None,
+        },
+        19 => ReadSpec::FixedMinuteOffset {
+            base: Bound::Netz,
+            offset_min: angle_deg, // zmaniyos minutes over the netz→shkia span
+            seasonal: Some((Bound::Netz, Bound::Shkia)),
         },
         _ => return DOES_NOT_OCCUR,
     };
