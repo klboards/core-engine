@@ -23,11 +23,19 @@ std = []
 # through this vendored libm on every target — native and wasm compile the SAME source.
 libm = { version = "0.2", default-features = false }
 
+# CBOR reader for the parameter-vector + horizon-profile intake (ADR core-domain/0011/0018).
+# minicbor is the one mainstream CBOR codec that decodes structured values with NO heap, so it
+# fits the freestanding build: no `alloc`, no `std` — `default-features = false` keeps it no_std.
+minicbor = { version = "0.26", default-features = false, features = ["derive"] }
+
 [dev-dependencies]
 # DST-aware IANA tz rendering for the golden-vector harness ONLY. Lives at the edge, never in
 # the core (ADR core-domain/0007 boundary, validated by this harness). std + test-only.
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.10"
+# `alloc` (test-only) so the wire round-trip tests can ENCODE reference artifacts (the shipped lib
+# reader stays no-alloc; dev-deps never reach the lib/wasm build, so the freestanding guarantee holds).
+minicbor = { version = "0.26", default-features = false, features = ["alloc", "derive"] }
 
 [profile.release]
 panic = "abort"

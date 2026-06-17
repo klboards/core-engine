@@ -9,11 +9,14 @@
 //! "GRA vs Magen Avraham" and "day definition" are settings of the `proportional_day_bounds` knob
 //! (the `start`/`end` bounds), NOT code branches.
 
-use crate::geometry::solar_altitude_deg;
+use crate::geometry::{solar_altitude_deg, solar_azimuth_deg};
 use crate::lunar::{moon_altitude_deg, moon_semidiameter_deg};
-use crate::optics::{horizon_apparent_target_deg, horizon_target_deg, RefractionModel};
+use crate::optics::{
+    horizon_apparent_target_deg, horizon_target_deg, semidiameter_deg, RefractionModel,
+};
 use crate::params::Optics;
 use crate::units::GeometricAltitude;
+use crate::wire::HorizonProfile;
 use crate::{AbsoluteInstant, Site, ZmanResult};
 
 /// Which body's altitude curve a crossing is solved against. The crossing machinery is otherwise
@@ -309,4 +312,64 @@ pub fn moon_rise_set(
         optics.horizon_refraction,
     )
     .map(AbsoluteInstant::from_julian_day)
+}
+
+/// Terrain-skyline sunrise/sunset (`HorizonMode::TerrainProfile`, ADR core-domain/0004 + /0018): the
+/// Sun's apparent upper limb crossing the **per-azimuth** horizon angle from a provisioned profile.
+/// Unlike the scalar reads, the target is **azimuth-dependent** — `−(semidiameter + profile angle at
+/// the Sun's azimuth)`, with `optics.horizon_refraction` added by the solver. This is the moat path:
+/// it consumes the provisioned `(azimuth → angle)` skyline rather than the sea-level/dip horizon.
+///
+/// Self-contained (does not touch the byte-frozen scalar [`find_crossing`]); it repeats the
+/// noon-anchored scan + bisect with the dynamic target, reusing the same **geometric-slope gate**
+/// (/0017) so refraction below the horizon can't flip a sunset into a sunrise. `None` = does-not-occur.
+pub fn terrain_horizon_crossing(
+    site: &Site,
+    ref_jd: f64,
+    dir: Direction,
+    optics: &Optics,
+    profile: &HorizonProfile,
+) -> ZmanResult {
+    let (lo, hi) = window(ref_jd, dir);
+    let refr = optics.horizon_refraction;
+    let sd = semidiameter_deg();
+    // Apparent-altitude target at time `t`: the Sun's upper limb clears the **signed skyline altitude**
+    // at its azimuth, so the centre altitude at the crossing is `horizon_angle − semidiameter` (a
+    // mountain at +angle delays sunrise; a sea-horizon dip is a negative angle, reproducing Visible).
+    let target_at = |t: f64| profile.horizon_angle_deg_at(solar_azimuth_deg(t, site)) - sd;
+
+    let mut prev_t = lo;
+    let mut prev_f = effective_alt_deg(lo, site, Body::Sun, refr) - target_at(lo);
+    let mut i = 1u32;
+    while i <= SCAN_STEPS {
+        let t = lo + (hi - lo) * (i as f64 / SCAN_STEPS as f64);
+        let f = effective_alt_deg(t, site, Body::Sun, refr) - target_at(t);
+        if (prev_f < 0.0) != (f < 0.0) {
+            // Geometric slope gates rising vs setting (refraction can't invert it; /0017).
+            let increasing = effective_alt_deg(t, site, Body::Sun, RefractionModel::None)
+                > effective_alt_deg(prev_t, site, Body::Sun, RefractionModel::None);
+            if increasing == matches!(dir, Direction::Rising) {
+                // Bisect on the dynamic-target residual.
+                let (mut a, mut b) = (prev_t, t);
+                let mut fa = effective_alt_deg(a, site, Body::Sun, refr) - target_at(a);
+                let mut k = 0u32;
+                while k < BISECT_ITERS {
+                    let mid = 0.5 * (a + b);
+                    let fmid = effective_alt_deg(mid, site, Body::Sun, refr) - target_at(mid);
+                    if (fa < 0.0) != (fmid < 0.0) {
+                        b = mid;
+                    } else {
+                        a = mid;
+                        fa = fmid;
+                    }
+                    k += 1;
+                }
+                return Some(AbsoluteInstant::from_julian_day(0.5 * (a + b)));
+            }
+        }
+        prev_t = t;
+        prev_f = f;
+        i += 1;
+    }
+    None
 }

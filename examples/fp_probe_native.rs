@@ -190,6 +190,8 @@ fn main() {
         (9, 0.0, "moon_alt"),
         (13, 0.0, "dayroll"),
         (14, 0.0, "sun_alt"),
+        (15, 0.0, "azimuth"),
+        (16, 0.5, "terrain"), // synthetic +0.5° skyline crossing
     ];
     for &(lat, lon, elev, sname) in sites {
         for (di, &jd) in day_jds.iter().enumerate() {

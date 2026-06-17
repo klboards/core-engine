@@ -231,17 +231,24 @@ never reached) are returned as a **typed `does-not-occur`**, never a wrong insta
 
 ---
 
-## 4. SERIALIZATION (logical shape fixed here; on-wire encoding remains OPEN)
+## 4. SERIALIZATION (logical shape here; on-wire encoding = CBOR/CDDL, ADR-0011/0018)
 
 This spec fixes the **LOGICAL shape** of the parameter vector (knob names, abstract types, the
-read-spec union, the layering semantics) and of its relationship to the horizon profile. It does
-**not** choose an on-wire encoding.
+read-spec union, the layering semantics) and of its relationship to the horizon profile.
 
-Per **0008**, the **byte encoding of the parameter vector + horizon profile is an OPEN cross-repo
-contract**: provisioning *writes* it, the device/apps *read* it, so it is a shared cross-language
-format — explicitly **not** to be pre-resolved by any in-ecosystem default. Candidate families were
-noted in 0008 (a language-native format, or CBOR / protobuf / flatbuffers-class). **The encoding
-stays TODO**; only the logical shape is settled here.
+The **on-wire encoding is decided** (core-domain/0011) and now **built** (core-domain/0018): **CBOR**
+(RFC 8949), with the cross-repo contract expressed as **CDDL** in
+[`parameter-vector.cddl`](parameter-vector.cddl) + [`horizon-profile.cddl`](horizon-profile.cddl), and
+**COSE_Sign1** signing. Provisioning *writes* it; the engine's `no_std` `minicbor` reader (`src/wire.rs`)
+*reads* it — cross-language by construction (0008). **Closed by 0018:** the deterministic profile =
+**CDE / RFC 8949 §4.2.1 core-deterministic** (not dCBOR), and all numerics are **fixed-point integers**
+(milliarcminutes / microdegrees / mm → a float-free, trivially-deterministic wire). **Still OPEN:**
+device-side **COSE verification** (↔ org/0006 §7 root-of-trust) and **one-vs-two channels**.
+
+> Spec↔engine gaps flagged by 0018 (to reconcile here later): `refraction.model` is broader than the
+> engine's `RefractionModel` (`meeus-noaa` / `halachic-fixed-coefficient` not yet implemented);
+> `horizon.mode` should enumerate three modes (`sea-level` / **`visible`** / `terrain-profile`, the
+> middle one added in /0013); `solar.position_reference` / `solar.limb_reference` are currently baked.
 
 ---
 

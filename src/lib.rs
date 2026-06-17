@@ -30,6 +30,7 @@ pub mod params;
 pub mod tekufa;
 pub mod time;
 pub mod units;
+pub mod wire;
 
 /// Freestanding panic handler — only for the `#![no_std]` (no `std` feature) artifact, e.g. wasm
 /// and the eventual device build. The std test/host build uses std's handler.

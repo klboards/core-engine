@@ -45,21 +45,28 @@ this checkout builds into `/home/brx/Benjwho/forge/target` (not `./target`).
 ## Current status (as of ADR-0017)
 
 **F1 (solar) / F2 (lunar) / F3 (Hebrew calendar) + the four ADR-0001 couplings are COMPLETE and
-validated.** Modules: `geometry`/`optics`/`events` (F1), `lunar` (F2), `calendar` (F3 + molad +
-day-type), `tekufa` (arithmetic seasons), `kiddush_levana`, `couplings` (the only F1↔F3 dependency
-point), `params` (knob catalog), `ffi` (FP-determinism probe / future relinkability boundary).
+validated; the CBOR intake boundary + the TerrainProfile moat are BUILT (/0018).** Modules:
+`geometry`/`optics`/`events` (F1; `terrain_horizon_crossing` = the azimuth-dependent terrain path),
+`lunar` (F2), `calendar` (F3 + molad + day-type), `tekufa`, `kiddush_levana`, `couplings` (the only
+F1↔F3 point), `params` (knob catalog), `wire` (the `no_std`/no-alloc minicbor reader:
+`ParameterVector` + `HorizonProfile`), `ffi` (FP-determinism probe / relinkability boundary).
 
-- **Validated:** F1 golden 66/66 (Wolfram), F2 11/11, F3 38/38 (Wolfram+Hebcal+MyZmanim, incl.
-  Yom-Tov-Sheni realm divergence), tekufa/tal-u-matar 10/10 (Dec-4/5/6), couplings 3/3, properties
-  10/10, fuzz 3/3, regression 116/116, cross-engine 48/48 vs **KosherJava** (≈2.1 s), offline-autonomy.
-- **FP-determinism:** 456/456 exact native==wasm (the one-core-no-drift gate, /0010).
-- **NOT yet built (the boundary):** CBOR/CDDL/COSE serialization (decided /0011, unimplemented — the
-  engine still takes a Rust API + `Optics::default()`, not a signed param-vector/horizon-profile);
-  the C-ABI FFI beyond the probe; `HorizonMode::TerrainProfile` wiring (consumes provisioning output).
-- **Open gates / flags:** see `docs/adr/0016` §Open and `0017` §Open (molad meridian; bein-hashmashot
-  default; realm geography = provisioned input; high-latitude fallback; /0003 tolerance; input-domain
-  guarding; Rav-Ada anchor unvalidated; `AbsoluteInstant` ~2262 CE horizon). Israel high-res DTM
-  (/0004) is the sole open top-level hard-TODO.
+- **Validated:** F1 golden 66/66 (Wolfram), F2 11/11, F3 38/38 (Wolfram+Hebcal+MyZmanim), tekufa/
+  tal-u-matar 10/10, couplings 3/3, properties 10/10, fuzz (incl. decoder, no panic), regression
+  120/120, cross-engine 48/48 vs **KosherJava** (≈2.1 s), wire 5/5, terrain differential, offline-autonomy.
+- **FP-determinism:** 536/536 exact native==wasm (the one-core-no-drift gate, /0010).
+- **Intake (/0018):** `wire::decode_parameter_vector` / `decode_horizon_profile` (CBOR, CDE-deterministic,
+  fixed-point integers — milliarcminutes / microdegrees / mm; minicbor no-alloc). Param-vector retires
+  `Optics::default()`-only; horizon-profile drives `HorizonMode::TerrainProfile`. CDDL contracts in
+  `docs/spec/*.cddl`.
+- **NOT yet built:** **COSE_Sign1 verification** (↔ org/0006 §7 root-of-trust); the CBOR **writer**
+  (provisioning-builder, Phase B); the `zman_definitions` read-spec catalog + `fixed-minute-offset` +
+  `obligation_sense`/rounding plumbing (Phase 4b); `meeus-noaa` / `halachic-fixed-coefficient`
+  refraction models.
+- **Open gates / flags:** see `docs/adr/0016` §Open, `0017` §Open, `0018` §Open (molad meridian;
+  bein-hashmashot default; realm geography = provisioned input; high-latitude fallback; /0003 tolerance;
+  Rav-Ada anchor; `AbsoluteInstant` ~2262 CE horizon; COSE/root-of-trust; spec↔engine refraction/
+  horizon_mode gaps). Israel high-res DTM (/0004) is the sole open top-level hard-TODO.
 
 ## Build & test
 

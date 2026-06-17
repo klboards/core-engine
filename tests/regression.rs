@@ -12,11 +12,12 @@ use core_engine::calendar::{
 use core_engine::couplings::{
     hebrew_date_at_instant, tal_umatar_start_date, DayRoll, DEFAULT_DAY_BOUNDARY,
 };
-use core_engine::events::{read_instant, Bound, Direction, ReadSpec};
+use core_engine::events::{read_instant, terrain_horizon_crossing, Bound, Direction, ReadSpec};
 use core_engine::kiddush_levana::kiddush_levana_window;
 use core_engine::params::{Optics, Realm, TalUmatarBasis, TekufaMethod};
 use core_engine::tekufa::{tekufa_civil, Season};
 use core_engine::time::jd_from_gregorian;
+use core_engine::wire::HorizonProfile;
 use core_engine::{AbsoluteInstant, Site};
 
 const SNAPSHOT: &str = concat!(
@@ -199,6 +200,42 @@ fn rows() -> Vec<(String, String)> {
             DayRoll::BoundaryDoesNotOccur => "DNO".into(),
         };
         out.push((format!("c.dayroll.{secs}"), r));
+    }
+    // TerrainProfile crossings (coupling-free /0018 moat path): a constant +0.3° synthetic skyline
+    // (72 samples, 18000 milliarcminutes) at two sites — locks the azimuth-dependent terrain solver.
+    let mut angles: Vec<u8> = Vec::new();
+    for _ in 0..72 {
+        angles.extend_from_slice(&18_000i32.to_le_bytes());
+    }
+    for &(lat, lon, sn) in &[(31.778, 35.2354, "jeru"), (40.7128, -74.006, "nyc")] {
+        let site = Site {
+            lat_deg: lat,
+            lon_deg: lon,
+            elev_m: 0.0,
+        };
+        let hp = HorizonProfile {
+            lat_microdeg: (lat * 1.0e6) as i32,
+            lon_microdeg: (lon * 1.0e6) as i32,
+            elev_mm: 0,
+            dem_source: 1,
+            dem_version: 1,
+            prov_refraction_model: 0,
+            prov_refraction_coeff_micro: None,
+            angles_mam: &angles,
+        };
+        let ref_jd = jd_from_gregorian(2026, 6, 21.5) - lon / 360.0;
+        for (dir, dn) in [(Direction::Rising, "netz"), (Direction::Setting, "shkia")] {
+            out.push((
+                format!("terrain.{sn}.{dn}"),
+                zr(terrain_horizon_crossing(
+                    &site,
+                    ref_jd,
+                    dir,
+                    &Optics::default(),
+                    &hp,
+                )),
+            ));
+        }
     }
     out
 }

@@ -4,7 +4,7 @@
 //! per the ADR core-domain/0006 seam).
 
 use crate::Site;
-use libm::{asin, atan2, cos, sin};
+use libm::{asin, atan2, cos, sin, tan};
 
 const DEG: f64 = core::f64::consts::PI / 180.0;
 
@@ -32,8 +32,11 @@ fn clamp(x: f64, lo: f64, hi: f64) -> f64 {
     }
 }
 
-/// Geometric solar altitude (degrees) at UT Julian Day `jd` for `site`.
-pub fn solar_altitude_deg(jd: f64, site: &Site) -> f64 {
+/// Shared solar-position intermediates at UT Julian Day `jd` for `site`: `(declination,
+/// local-hour-angle, latitude)` in **radians**. Extracted so altitude (F1) and azimuth (the /0018
+/// TerrainProfile path) share one ephemeris. Byte-identical to the prior inline form — Rust `f64`
+/// ops are strict IEEE, unchanged across a function boundary (guarded by golden 66/66 + FP /0010).
+fn sun_local(jd: f64, site: &Site) -> (f64, f64, f64) {
     // The Sun's position is an ephemeris quantity → compute it at Terrestrial Time
     // (TT = UT + ΔT), while Earth-rotation (sidereal time) stays on UT (ADR core-domain/0012).
     // ΔT is a provisional 2026 constant; a time-varying ΔT model is a TODO (core-domain/0003/0007).
@@ -71,7 +74,26 @@ pub fn solar_altitude_deg(jd: f64, site: &Site) -> f64 {
 
     let hour_angle = (gmst + site.lon_deg - ra_deg) * DEG; // local hour angle (rad)
     let phi = site.lat_deg * DEG;
+    (decl, hour_angle, phi)
+}
 
+/// Geometric solar altitude (degrees) at UT Julian Day `jd` for `site`.
+pub fn solar_altitude_deg(jd: f64, site: &Site) -> f64 {
+    let (decl, hour_angle, phi) = sun_local(jd, site);
     let sin_alt = sin(phi) * sin(decl) + cos(phi) * cos(decl) * cos(hour_angle);
     asin(clamp(sin_alt, -1.0, 1.0)) / DEG
+}
+
+/// Solar azimuth (degrees), **compass convention**: measured clockwise from true North
+/// (0 = N, 90 = E, 180 = S, 270 = W). Drives the azimuth-dependent terrain-horizon target
+/// (ADR core-domain/0018) — the horizon angle the Sun rises/sets over depends on where on the
+/// skyline it crosses. Same ephemeris as the altitude (`sun_local`); one extra `atan2`.
+pub fn solar_azimuth_deg(jd: f64, site: &Site) -> f64 {
+    let (decl, hour_angle, phi) = sun_local(jd, site);
+    // Meeus azimuth-from-South, then +180° to the compass (from-North) convention.
+    let az_south = atan2(
+        sin(hour_angle),
+        cos(hour_angle) * sin(phi) - tan(decl) * cos(phi),
+    );
+    norm360(az_south / DEG + 180.0)
 }

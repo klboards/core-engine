@@ -1,0 +1,29 @@
+; klboards horizon-profile — cross-repo wire contract (RFC 8610 CDDL).
+; ADR core-domain/0004 (terrain skyline) · /0006 (provisioning<->runtime invariant) · /0011 · /0018.
+;
+; A per-site terrain skyline: binding metadata + a packed azimuth->angle array. Integer-keyed CBOR
+; map, CDE / core-deterministic, fixed-point integers (float-free). Independently versioned and
+; signed (COSE_Sign1; verification deferred) from the parameter vector. The WRITER is
+; provisioning-builder (DEM ray-trace); the engine is the reader.
+
+horizon-profile = {
+  0 => int,            ; lat_microdeg   -- bound latitude,  microdegrees (north +)
+  1 => int,            ; lon_microdeg   -- bound longitude, microdegrees (east +)
+  2 => int,            ; elev_mm        -- bound elevation, millimetres
+  3 => uint,           ; dem_source     -- registered DEM-source id (e.g. Copernicus GLO-30, USGS 3DEP)
+  4 => uint,           ; dem_version    -- DEM dataset version
+  5 => 0..2,           ; prov_refraction_model -- model used at provisioning (must match runtime; 0006)
+  ? 6 => int,          ; prov_refraction_coeff_micro -- micro-arcminutes (iff prov model = 2)
+  7 => angle-array,
+}
+
+; The runtime MUST verify (lat,lon,elev) match the site it computes for (the 0004/0006 binding
+; invariant) before composing this skyline; a mismatch is the wrong profile -> reject.
+
+; Packed azimuth->horizon-angle samples: a CBOR byte string of little-endian int32 MILLIARCMINUTES
+; (1 mam = 1/60000 degree), length a multiple of 4 and >= 4. n = len/4 samples are evenly spaced over
+; [0 deg, 360 deg); sample i is the SIGNED skyline altitude at azimuth i*360/n (compass, from North).
+; Positive = a ridge above the astronomical horizon (delays sunrise); negative = a depressed sea
+; horizon (the Visible-mode dip is just a negative angle). The runtime interpolates linearly with
+; 360 deg wraparound and crosses the Sun's upper limb: centre-altitude target = angle - semidiameter.
+angle-array = bstr

@@ -8,13 +8,16 @@
 use crate::calendar::{fixed_from_hebrew, molad_instant};
 use crate::couplings::{hebrew_date_at_instant, DayRoll, DEFAULT_DAY_BOUNDARY};
 use crate::events::{
-    moon_rise_set, read_instant, sun_effective_alt_deg, Bound, Direction, ReadSpec,
+    moon_rise_set, read_instant, sun_effective_alt_deg, terrain_horizon_crossing, Bound, Direction,
+    ReadSpec,
 };
+use crate::geometry::solar_azimuth_deg;
 use crate::lunar::moon_altitude_deg;
 use crate::optics::RefractionModel;
 use crate::params::{Optics, TekufaMethod};
 use crate::tekufa::{tekufa_instant, Season};
 use crate::units::GeometricAltitude;
+use crate::wire::HorizonProfile;
 use crate::{AbsoluteInstant, Site};
 
 /// Does-not-occur sentinel for the C-ABI (Option can't cross the boundary).
@@ -27,8 +30,10 @@ pub const DOES_NOT_OCCUR: i64 = i64::MIN;
 /// **11 tekufa instant Shmuel · 12 tekufa instant Rav Ada** (`ref_jd`=Hebrew year, `angle`=season
 /// ordinal 0 Nisan/1 Tammuz/2 Tishrei/3 Tevet) · **13 day-roll resolved RD** (`ref_jd`=JD of the
 /// instant; returns the rolled Hebrew Rata Die, or sentinel if the boundary does-not-occur) ·
-/// **14 sun effective altitude** (the night predicate; returns `round(deg·1e9)`). `angle` used by
-/// kinds 0/1/10/11/12.
+/// **14 sun effective altitude** (the night predicate; returns `round(deg·1e9)`). Intake/terrain
+/// (ADR core-domain/0018): **15 solar azimuth** (compass, `round(deg·1e9)`) · **16 TerrainProfile
+/// crossing** (`angle`=constant skyline angle deg; synthetic profile). `angle` used by
+/// kinds 0/1/10/11/12/16.
 // The crate denies unsafe_code; this single C-ABI export (the determinism-harness / future
 // ADR-0003 relinkability boundary) is the one justified exception.
 #[allow(unsafe_code)]
@@ -91,6 +96,41 @@ pub extern "C" fn probe_zman_nanos(
         14 => {
             return libm::round(sun_effective_alt_deg(ref_jd, &site, &Optics::default()) * 1.0e9)
                 as i64
+        }
+        15 => return libm::round(solar_azimuth_deg(ref_jd, &site) * 1.0e9) as i64,
+        16 => {
+            // TerrainProfile crossing (the /0018 moat float path: azimuth + per-azimuth angle +
+            // dynamic-target scan/bisect) against a synthetic constant-angle profile (`angle_deg`).
+            let mam = libm::round(angle_deg * 60_000.0) as i32;
+            let b = mam.to_le_bytes();
+            let mut buf = [0u8; 16]; // 4 samples × 4 bytes (LE i32 milliarcminutes)
+            let mut s = 0;
+            while s < 4 {
+                buf[s * 4] = b[0];
+                buf[s * 4 + 1] = b[1];
+                buf[s * 4 + 2] = b[2];
+                buf[s * 4 + 3] = b[3];
+                s += 1;
+            }
+            let hp = HorizonProfile {
+                lat_microdeg: 0,
+                lon_microdeg: 0,
+                elev_mm: 0,
+                dem_source: 0,
+                dem_version: 0,
+                prov_refraction_model: 0,
+                prov_refraction_coeff_micro: None,
+                angles_mam: &buf,
+            };
+            return terrain_horizon_crossing(
+                &site,
+                ref_jd,
+                Direction::Rising,
+                &Optics::default(),
+                &hp,
+            )
+            .map(|ai| ai.unix_nanos)
+            .unwrap_or(DOES_NOT_OCCUR);
         }
         _ => {}
     }

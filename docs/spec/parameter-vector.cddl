@@ -1,0 +1,37 @@
+; klboards parameter-vector — cross-repo wire contract (RFC 8610 CDDL).
+; ADR core-domain/0009 (logical schema) · /0011 (CBOR/CDDL/COSE) · /0018 (this encoding).
+;
+; Encoding: an integer-keyed CBOR map, CDE / RFC 8949 §4.2.1 core-deterministic (definite-length,
+; preferred serialization, lexicographic map-key order). NOT dCBOR (no float->int numeric reduction).
+; All numerics are FIXED-POINT INTEGERS -> the wire is float-free (trivially deterministic; the
+; decoder converts to f64 on read). The WRITER is provisioning-builder; the engine is the reader.
+; Signing: a COSE_Sign1 over the deterministic bytes (RFC 9052) -- verification deferred (org/0006 §7
+; root-of-trust open), so this contract describes the payload, not the COSE envelope.
+
+parameter-vector = {
+  0  => uint,         ; schema_version            (this build understands version 1)
+  1  => uint,         ; engine_selection          (0 = owned-primary; the only engine shipping)
+  2  => horizon-mode,
+  3  => refraction-model,
+  ? 4 => int,         ; refraction_coeff_micro    (micro-arcminutes; required iff refraction-model = 2)
+  5  => 0..1,         ; solar_position_reference  (0 apparent, 1 geometric)
+  6  => 0..2,         ; solar_limb_reference      (0 upper, 1 center, 2 lower)
+  7  => 0..1,         ; locale_realm             (0 eretz-yisrael, 1 diaspora)
+  8  => 0..1,         ; tal_umatar_basis         (0 tekufa-based, 1 fixed-7-cheshvan)
+  9  => 0..1,         ; tekufa_method            (0 shmuel, 1 rav-ada)
+  10 => 0..2,         ; adar_anniversary_rule    (0 adar-II, 1 adar-I, 2 both)
+  11 => 0..2,         ; kiddush_levana_start     (0 three-days, 1 seven-days, 2 molad)
+  12 => 0..1,         ; kiddush_levana_end       (0 half-month, 1 fifteen-days)
+  13 => 0..3,         ; rounding_stringency      (0 lehakel, 1 lehachmir, 2 nearest, 3 truncate)
+  14 => 0..1,         ; rounding_granularity     (0 second, 1 minute)
+}
+
+; 0 sea-level (Mishor) / 1 visible (in-core elevation dip) / 2 terrain-profile.
+; NOTE (ADR-0018 finding): /0013 added `visible` as a third mode; the spec §1.B narrative still
+; lists only {sea-level, terrain-profile} and should be updated to enumerate all three.
+horizon-mode = 0..2
+
+; 0 standard-atmospheric (engine: Bennett apparent / None geometric, /0013) / 1 meeus-noaa /
+; 2 halachic-fixed-coefficient. NOTE (ADR-0018 finding): 1 and 2 are real spec options the engine
+; does not yet implement -> the reader returns Unimplemented (it does not silently substitute).
+refraction-model = 0..2
