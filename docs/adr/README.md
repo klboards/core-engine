@@ -33,6 +33,7 @@ ADR-0001 and ADR-0002 **ratify the already-settled first-order model** so the de
 | [0018](0018-cbor-intake-reader-and-terrainprofile.md) | CBOR intake reader (param-vector + horizon-profile) + TerrainProfile activation | minicbor no-alloc; CDE-not-dCBOR; fixed-point; closes 0011 sub-items 1&2 |
 | [0019](0019-poskim-spectrum-is-second-order.md) | The poskim spectrum is second-order; the first-order core stays mechanism-only | Layering ruling; most axes need zero engine change (proven by `tests/second_order.rs`) |
 | [0020](0020-read-spec-vocabulary-complete.md) | Read-spec vocabulary complete: limb reference + fixed-minute-offset + read-spec decode | Closes /0019's three first-order gaps; catalog stays second-order |
+| [0021](0021-fixed-minute-proportional-day-bound.md) | Fixed-minute proportional-day bound (`Bound::OffsetMinutes`) — literal-72-min MGA day | Wire-additive (BoundWire tag 3); KosherJava-oracle 24/24; 659/659 determinism kept |
 
 ## Ratified decisions handoff (decision + rationale, for Claude Code)
 

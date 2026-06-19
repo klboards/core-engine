@@ -129,7 +129,7 @@ fn fuzz_calendar_readers_never_panic() {
 
 #[test]
 fn fuzz_decoders_never_panic() {
-    use core_engine::wire::{decode_horizon_profile, decode_parameter_vector};
+    use core_engine::wire::{decode_horizon_profile, decode_parameter_vector, decode_read_spec};
     // Random byte sequences into the CBOR readers (the device/FFI intake surface). A malformed
     // artifact must yield a typed DecodeError, never a panic (the /0017 invariant — a no_std panic
     // is a hung device). The shipped reader is no-alloc; minicbor decodes without the heap.
@@ -143,5 +143,7 @@ fn fuzz_decoders_never_panic() {
         let bytes = &buf[..len];
         black_box(decode_parameter_vector(bytes).is_ok());
         black_box(decode_horizon_profile(bytes).is_ok());
+        // The read-spec decoder is intake too (/0020, +/0021 OffsetMinutes bound) — must never panic.
+        black_box(decode_read_spec(bytes).is_ok());
     }
 }

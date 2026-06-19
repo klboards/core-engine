@@ -1,5 +1,5 @@
 ; klboards read-spec — cross-repo wire contract (RFC 8610 CDDL).
-; ADR core-domain/0009 (the read-spec union) · /0020 (vocabulary complete) · /0011 · /0018.
+; ADR core-domain/0009 (the read-spec union) · /0020 (vocabulary complete) · /0021 (offset bound) · /0011 · /0018.
 ;
 ; A SINGLE zman read off the F1 altitude curve. The complete five-variant union (DepressionAngle,
 ; HorizonCrossing, ExtremumMidpoint, Proportional, FixedMinuteOffset). CDE / core-deterministic,
@@ -28,12 +28,19 @@ proportional        = [3, [num, den, bound, bound]]              ; start + (num/
 fixed-minute-offset = [4, [bound, offset-milli-min, opt-bound, opt-bound]]
                                                                  ; base +- offset; seasonal iff both opt-bound present
 
-; A bound of the proportional ("seasonal-hour") day, same tagged-union shape.
-bound = bound-netz / bound-shkia / bound-depression
-bound-netz       = [0, []]
-bound-shkia      = [1, []]
-bound-depression = [2, [angle-microdeg, dir]]
-opt-bound        = bound / null
+; A bound of the proportional ("seasonal-hour") day, same tagged-union shape. Tags 0/1/2 are the
+; /0020 primitives (unchanged — no drift); tag 3 (/0021) is an additive fixed-minute offset of a
+; primitive bound, making the literal-72-min MGA day expressible (alos = netz-72, tzeis = shkia+72).
+bound = bound-netz / bound-shkia / bound-depression / bound-offset-minutes
+bound-netz            = [0, []]
+bound-shkia           = [1, []]
+bound-depression      = [2, [angle-microdeg, dir]]
+bound-offset-minutes  = [3, [prim-bound, offset-milli-min]]   ; base shifted by fixed clock minutes (/0021)
+opt-bound             = bound / null
+
+; A PRIMITIVE bound — the base an offset-minutes bound shifts. Non-recursive (no offset-of-offset);
+; tags mirror the bound primitives 0/1/2.
+prim-bound       = [0, []] / [1, []] / [2, [angle-microdeg, dir]]
 
 angle-microdeg   = int     ; degrees * 1e6 (depression magnitude or, for terrain, signed skyline angle)
 offset-milli-min = int     ; signed minutes * 1000 (negative = before the base bound)

@@ -9,7 +9,7 @@
 //! `tools/KosherDiff.java`) — same oracle-as-fixture pattern as the Wolfram golden vectors; the LGPL
 //! jar is a build-tool, never vendored, never shipped. No runtime Java dependency.
 
-use core_engine::events::{read_instant, Direction, ReadSpec};
+use core_engine::events::{read_instant, Bound, Direction, PrimBound, ReadSpec};
 use core_engine::params::Optics;
 use core_engine::time::jd_from_gregorian;
 use core_engine::Site;
@@ -33,6 +33,97 @@ fn our_millis(site: &Site, y: i32, m: u8, d: u8, dir: Direction, optics: &Optics
         optics,
     )
     .map(|a| a.unix_nanos / 1_000_000)
+}
+
+/// Our literal-72-minute MGA sof-zman-shma (ADR core-domain/0021): 3 proportional hours into the day
+/// bounded by alos = sunrise−72 and tzais = sunset+72 FIXED clock minutes. We base it on
+/// `Depression{0.8333°}` (= KosherJava's sea-level sunrise/sunset basis) so the comparison isolates the
+/// new `OffsetMinutes`-bounded proportional read, matching the sunrise/sunset differential above.
+fn our_mga72_millis(site: &Site, y: i32, m: u8, d: u8, optics: &Optics) -> Option<i64> {
+    let ref_jd = jd_from_gregorian(y, m as u32, d as f64 + 0.5) - site.lon_deg / 360.0;
+    read_instant(
+        site,
+        ref_jd,
+        ReadSpec::Proportional {
+            fraction: 0.25,
+            start: Bound::OffsetMinutes {
+                base: PrimBound::Depression {
+                    angle_deg: 0.833_3,
+                    dir: Direction::Rising,
+                },
+                offset_min: -72.0,
+            },
+            end: Bound::OffsetMinutes {
+                base: PrimBound::Depression {
+                    angle_deg: 0.833_3,
+                    dir: Direction::Setting,
+                },
+                offset_min: 72.0,
+            },
+        },
+        optics,
+    )
+    .map(|a| a.unix_nanos / 1_000_000)
+}
+
+#[test]
+fn cross_engine_sof_zman_shma_mga72_vs_kosherjava() {
+    let data = std::fs::read_to_string(FIXTURE).expect("kosherjava fixture present");
+    let optics = Optics::default(); // geometric sun-center (matches KJ's 90.833° zenith basis)
+    let (mut pass, mut fail, mut max_res) = (0u32, 0u32, 0i64);
+    let mut out: Vec<String> = Vec::new();
+
+    for line in data.lines().skip(1) {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let f: Vec<&str> = line.split(',').collect();
+        let (name, lat, lon) = (f[0], f[1].parse().unwrap(), f[2].parse().unwrap());
+        let dp: Vec<&str> = f[3].split('-').collect();
+        let (y, m, d): (i32, u8, u8) = (
+            dp[0].parse().unwrap(),
+            dp[1].parse().unwrap(),
+            dp[2].parse().unwrap(),
+        );
+        let site = Site {
+            lat_deg: lat,
+            lon_deg: lon,
+            elev_m: 0.0,
+        };
+        let kj = f[6]; // sofzman_mga72_millis
+        let ours = our_mga72_millis(&site, y, m, d, &optics);
+        match (kj, ours) {
+            ("null", None) => pass += 1,
+            ("null", Some(_)) | (_, None) => {
+                fail += 1;
+                out.push(format!(
+                    "!! {name} {y}-{m}-{d} sofzman_mga72: occurrence mismatch (kj={kj}, ours={ours:?})"
+                ));
+            }
+            (k, Some(o)) => {
+                let res = o - k.parse::<i64>().unwrap();
+                max_res = max_res.max(res.abs());
+                if res.abs() <= TOL_MS {
+                    pass += 1;
+                } else {
+                    fail += 1;
+                    out.push(format!(
+                        "!! {name} {y}-{m}-{d} sofzman_mga72: {res} ms (> {TOL_MS})"
+                    ));
+                }
+            }
+        }
+    }
+    for r in &out {
+        eprintln!("{r}");
+    }
+    eprintln!(
+        "cross-engine MGA-72 sof-zman-shma vs KosherJava: {pass} ok, {fail} fail; max |residual| = {max_res} ms (tol {TOL_MS})"
+    );
+    assert_eq!(
+        fail, 0,
+        "{fail} MGA-72 row(s) diverged from KosherJava beyond tolerance"
+    );
 }
 
 #[test]

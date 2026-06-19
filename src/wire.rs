@@ -8,7 +8,7 @@
 //! Contract shape: integer-keyed CBOR maps; see `docs/spec/parameter-vector.cddl` +
 //! `docs/spec/horizon-profile.cddl`.
 
-use crate::events::{Bound, Direction, ReadSpec};
+use crate::events::{Bound, Direction, PrimBound, ReadSpec};
 use crate::optics::{HorizonMode, LimbReference, RefractionModel};
 use crate::params::{
     AdarAnniversaryRule, KiddushLevanaEnd, KiddushLevanaStart, Optics, Realm, TalUmatarBasis,
@@ -207,8 +207,32 @@ impl ParameterVector {
     }
 }
 
-/// Wire form of a proportional-day [`Bound`] (ADR core-domain/0020): integer-keyed, float-free —
-/// depression angles are fixed-point **microdegrees**, directions `0 = rising / 1 = setting`.
+/// Wire form of a *primitive* proportional-day [`PrimBound`] (ADR core-domain/0021): the base a
+/// [`BoundWire::OffsetMinutes`] shifts. Integer-keyed, float-free; tags mirror [`BoundWire`] 0/1/2.
+/// Kept separate so an offset bound is non-recursive on the wire (no OffsetMinutes-of-OffsetMinutes).
+#[derive(Clone, Debug, Decode, Encode)]
+pub enum PrimBoundWire {
+    /// Sunrise (apparent horizon crossing).
+    #[n(0)]
+    Netz,
+    /// Sunset (apparent horizon crossing).
+    #[n(1)]
+    Shkia,
+    /// A depression-angle bound.
+    #[n(2)]
+    Depression {
+        /// Depression magnitude, microdegrees.
+        #[n(0)]
+        angle_microdeg: i32,
+        /// 0 = rising (morning), 1 = setting (evening).
+        #[n(1)]
+        dir: u8,
+    },
+}
+
+/// Wire form of a proportional-day [`Bound`] (ADR core-domain/0020, extended /0021): integer-keyed,
+/// float-free — depression angles are fixed-point **microdegrees**, directions `0 = rising / 1 =
+/// setting`. Tags `0/1/2` are unchanged from /0020 (no drift); tag `3` (/0021) is additive.
 #[derive(Clone, Debug, Decode, Encode)]
 pub enum BoundWire {
     /// Sunrise (apparent horizon crossing).
@@ -226,6 +250,17 @@ pub enum BoundWire {
         /// 0 = rising (morning), 1 = setting (evening).
         #[n(1)]
         dir: u8,
+    },
+    /// A primitive bound shifted by fixed clock minutes (ADR core-domain/0021): the literal-72-minute
+    /// MGA proportional day = (OffsetMinutes{Netz,−72}, OffsetMinutes{Shkia,+72}).
+    #[n(3)]
+    OffsetMinutes {
+        /// The primitive bound to shift.
+        #[n(0)]
+        base: PrimBoundWire,
+        /// Signed offset, milli-minutes (negative = before the base).
+        #[n(1)]
+        offset_milli_min: i32,
     },
 }
 
@@ -298,6 +333,20 @@ fn dir_of(d: u8) -> Result<Direction, DecodeError> {
     }
 }
 
+fn prim_bound_of(b: PrimBoundWire) -> Result<PrimBound, DecodeError> {
+    Ok(match b {
+        PrimBoundWire::Netz => PrimBound::Netz,
+        PrimBoundWire::Shkia => PrimBound::Shkia,
+        PrimBoundWire::Depression {
+            angle_microdeg,
+            dir,
+        } => PrimBound::Depression {
+            angle_deg: angle_microdeg as f64 / MICRODEG_PER_DEG,
+            dir: dir_of(dir)?,
+        },
+    })
+}
+
 fn bound_of(b: BoundWire) -> Result<Bound, DecodeError> {
     Ok(match b {
         BoundWire::Netz => Bound::Netz,
@@ -308,6 +357,13 @@ fn bound_of(b: BoundWire) -> Result<Bound, DecodeError> {
         } => Bound::Depression {
             angle_deg: angle_microdeg as f64 / MICRODEG_PER_DEG,
             dir: dir_of(dir)?,
+        },
+        BoundWire::OffsetMinutes {
+            base,
+            offset_milli_min,
+        } => Bound::OffsetMinutes {
+            base: prim_bound_of(base)?,
+            offset_min: offset_milli_min as f64 / 1000.0,
         },
     })
 }

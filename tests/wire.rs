@@ -3,12 +3,12 @@
 //! engine's typed knobs, the azimuth interpolation + binding check, and that malformed/bad input
 //! yields a typed `DecodeError` (never a panic — the /0017 invariant, extended to the reader).
 
-use core_engine::events::{Bound, Direction, ReadSpec};
+use core_engine::events::{Bound, Direction, PrimBound, ReadSpec};
 use core_engine::optics::{HorizonMode, LimbReference, RefractionModel};
 use core_engine::params::{Realm, TalUmatarBasis, TekufaMethod};
 use core_engine::wire::{
     decode_horizon_profile, decode_parameter_vector, decode_read_spec, BoundWire, DecodeError,
-    HorizonProfile, ParameterVector, ReadSpecWire, SCHEMA_VERSION,
+    HorizonProfile, ParameterVector, PrimBoundWire, ReadSpecWire, SCHEMA_VERSION,
 };
 use core_engine::Site;
 
@@ -158,6 +158,33 @@ fn read_spec_round_trip_all_variants() {
                 seasonal: Some((Bound::Netz, Bound::Shkia)),
             },
         ),
+        // ADR core-domain/0021: the literal-72-min MGA proportional day — bounds are OffsetMinutes
+        // (netz−72, shkia+72 fixed clock min). Exercises BoundWire tag 3 + PrimBoundWire round-trip.
+        (
+            ReadSpecWire::Proportional {
+                num: 1,
+                den: 4,
+                start: BoundWire::OffsetMinutes {
+                    base: PrimBoundWire::Netz,
+                    offset_milli_min: -72_000,
+                },
+                end: BoundWire::OffsetMinutes {
+                    base: PrimBoundWire::Shkia,
+                    offset_milli_min: 72_000,
+                },
+            },
+            ReadSpec::Proportional {
+                fraction: 0.25,
+                start: Bound::OffsetMinutes {
+                    base: PrimBound::Netz,
+                    offset_min: -72.0,
+                },
+                end: Bound::OffsetMinutes {
+                    base: PrimBound::Shkia,
+                    offset_min: 72.0,
+                },
+            },
+        ),
     ];
     for (wire, expected) in cases {
         let bytes = minicbor::to_vec(&wire).expect("encode read-spec");
@@ -191,6 +218,21 @@ fn read_spec_malformed_or_out_of_range_never_panics() {
         offset_milli_min: 0,
         seasonal_start: Some(BoundWire::Netz),
         seasonal_end: None,
+    })
+    .unwrap();
+    assert_eq!(decode_read_spec(&bytes).unwrap_err(), DecodeError::Range);
+    // Bad direction inside an OffsetMinutes prim base (/0021) → Range (not a panic).
+    let bytes = minicbor::to_vec(ReadSpecWire::Proportional {
+        num: 1,
+        den: 4,
+        start: BoundWire::OffsetMinutes {
+            base: PrimBoundWire::Depression {
+                angle_microdeg: 16_100_000,
+                dir: 9,
+            },
+            offset_milli_min: -72_000,
+        },
+        end: BoundWire::Shkia,
     })
     .unwrap();
     assert_eq!(decode_read_spec(&bytes).unwrap_err(), DecodeError::Range);

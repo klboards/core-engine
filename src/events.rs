@@ -40,8 +40,27 @@ pub enum Direction {
     Setting,
 }
 
+/// A *primitive* proportional-day bound (no minute offset). The set a [`Bound::OffsetMinutes`] may shift;
+/// kept separate from [`Bound`] so the offset bound is **non-recursive** (fixed-size, no `Box`/alloc —
+/// the engine is `no_std` no-alloc).
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum PrimBound {
+    /// Sunrise (apparent horizon crossing).
+    Netz,
+    /// Sunset (apparent horizon crossing).
+    Shkia,
+    /// A depression-angle bound (e.g. MGA's alot/tzeit at −16.1°).
+    Depression {
+        /// Depression below the horizon, degrees (magnitude).
+        angle_deg: f64,
+        /// Morning (rising) or evening (setting).
+        dir: Direction,
+    },
+}
+
 /// A bound of the proportional ("seasonal-hour") day — data, set by the `proportional_day_bounds`
-/// knob. GRA = (Netz, Shkia); MGA = (depression −16.1 rising, depression −16.1 setting).
+/// knob. GRA = (Netz, Shkia); MGA-degrees = (depression −16.1 rising, depression −16.1 setting);
+/// MGA-72-minutes = (OffsetMinutes{Netz,−72}, OffsetMinutes{Shkia,+72}).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Bound {
     /// Sunrise (apparent horizon crossing).
@@ -54,6 +73,16 @@ pub enum Bound {
         angle_deg: f64,
         /// Morning (rising) or evening (setting).
         dir: Direction,
+    },
+    /// A primitive bound shifted by a fixed number of **clock** minutes (ADR core-domain/0021).
+    /// Makes the *literal-72-minute* MGA proportional day expressible — its bounds are alos = netz−72
+    /// and tzeis = shkia+72 fixed minutes, which are not primitive bounds. Non-recursive (base is a
+    /// [`PrimBound`]); `offset_min` is signed (negative = before the base).
+    OffsetMinutes {
+        /// The primitive bound to shift.
+        base: PrimBound,
+        /// Signed fixed clock-minute offset (negative = before `base`).
+        offset_min: f64,
     },
 }
 
@@ -281,9 +310,10 @@ pub fn proportional_span_days(
     Some(e - s)
 }
 
-fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f64> {
-    match bound {
-        Bound::Netz => read_jd(
+/// Resolve a *primitive* bound to a Julian Day (no minute offset).
+fn prim_bound_jd(site: &Site, ref_jd: f64, prim: PrimBound, optics: &Optics) -> Option<f64> {
+    match prim {
+        PrimBound::Netz => read_jd(
             site,
             ref_jd,
             ReadSpec::HorizonCrossing {
@@ -291,7 +321,7 @@ fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f
             },
             optics,
         ),
-        Bound::Shkia => read_jd(
+        PrimBound::Shkia => read_jd(
             site,
             ref_jd,
             ReadSpec::HorizonCrossing {
@@ -299,12 +329,27 @@ fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f
             },
             optics,
         ),
-        Bound::Depression { angle_deg, dir } => read_jd(
+        PrimBound::Depression { angle_deg, dir } => read_jd(
             site,
             ref_jd,
             ReadSpec::DepressionAngle { angle_deg, dir },
             optics,
         ),
+    }
+}
+
+fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f64> {
+    match bound {
+        Bound::Netz => prim_bound_jd(site, ref_jd, PrimBound::Netz, optics),
+        Bound::Shkia => prim_bound_jd(site, ref_jd, PrimBound::Shkia, optics),
+        Bound::Depression { angle_deg, dir } => {
+            prim_bound_jd(site, ref_jd, PrimBound::Depression { angle_deg, dir }, optics)
+        }
+        // Fixed clock-minute shift of a primitive bound (offset_min/1440 of a civil day). If the base
+        // does-not-occur (polar), the shifted bound does-not-occur too — `?` propagates it.
+        Bound::OffsetMinutes { base, offset_min } => {
+            Some(prim_bound_jd(site, ref_jd, base, optics)? + offset_min / 1440.0)
+        }
     }
 }
 

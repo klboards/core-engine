@@ -2,7 +2,7 @@
 //! fixed/seasonal minute-offset read. Anchored to the engine itself (differential / arithmetic
 //! identities), no external oracle — these assert *mechanism*, not a shita's correctness (/0019).
 
-use core_engine::events::{read_instant, Bound, Direction, ReadSpec};
+use core_engine::events::{read_instant, Bound, Direction, PrimBound, ReadSpec};
 use core_engine::optics::{HorizonMode, LimbReference};
 use core_engine::params::Optics;
 use core_engine::time::jd_from_gregorian;
@@ -190,5 +190,69 @@ fn offset_propagates_does_not_occur() {
         )
         .is_none(),
         "an offset off a does-not-occur base is itself does-not-occur"
+    );
+}
+
+/// ADR core-domain/0021: a proportional day whose bounds are `OffsetMinutes` (fixed-minute alos/tzais)
+/// is the **literal-72-minute** MGA day. Mechanism identity — it equals alos72 + ¼·(tzais72 − alos72)
+/// with alos72 = netz−72, tzais72 = shkia+72 fixed clock minutes — and it lands EARLIER than the GRA
+/// sof-zman-shma (the MGA day opens 72 min before netz, so its 3rd seasonal hour arrives sooner).
+#[test]
+fn offset_minute_bounded_proportional_is_the_literal_72min_mga_day() {
+    let o = Optics::default();
+    let rjd = ref_jd(2026, 6, 21.5);
+
+    let mga72 = read_instant(
+        &JERU,
+        rjd,
+        ReadSpec::Proportional {
+            fraction: 0.25,
+            start: Bound::OffsetMinutes {
+                base: PrimBound::Netz,
+                offset_min: -72.0,
+            },
+            end: Bound::OffsetMinutes {
+                base: PrimBound::Shkia,
+                offset_min: 72.0,
+            },
+        },
+        &o,
+    )
+    .expect("mga-72 sof-zman-shma occurs");
+
+    // Reconstruct from primitives: alos72 = netz−72, tzais72 = shkia+72, then the quarter point.
+    let netz_t = netz(&o, rjd);
+    let shkia_t = read_instant(
+        &JERU,
+        rjd,
+        ReadSpec::HorizonCrossing {
+            dir: Direction::Setting,
+        },
+        &o,
+    )
+    .expect("shkia occurs");
+    let alos72 = netz_t.unix_nanos as f64 - 72.0 * 60.0e9;
+    let tzais72 = shkia_t.unix_nanos as f64 + 72.0 * 60.0e9;
+    let expect = alos72 + 0.25 * (tzais72 - alos72);
+    assert!(
+        (mga72.unix_nanos as f64 - expect).abs() < 1.0e6,
+        "OffsetMinutes-bounded proportional == alos72 + ¼·(tzais72 − alos72)"
+    );
+
+    // Earlier than GRA (well-known ≈36 min on a long day): the MGA day starts before netz.
+    let gra = read_instant(
+        &JERU,
+        rjd,
+        ReadSpec::Proportional {
+            fraction: 0.25,
+            start: Bound::Netz,
+            end: Bound::Shkia,
+        },
+        &o,
+    )
+    .expect("gra sof-zman-shma occurs");
+    assert!(
+        mga72.unix_nanos < gra.unix_nanos,
+        "literal-72-min MGA sof-zman-shma precedes the GRA value"
     );
 }

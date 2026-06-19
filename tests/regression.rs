@@ -12,7 +12,9 @@ use core_engine::calendar::{
 use core_engine::couplings::{
     hebrew_date_at_instant, tal_umatar_start_date, DayRoll, DEFAULT_DAY_BOUNDARY,
 };
-use core_engine::events::{read_instant, terrain_horizon_crossing, Bound, Direction, ReadSpec};
+use core_engine::events::{
+    read_instant, terrain_horizon_crossing, Bound, Direction, PrimBound, ReadSpec,
+};
 use core_engine::kiddush_levana::kiddush_levana_window;
 use core_engine::params::{Optics, Realm, TalUmatarBasis, TekufaMethod};
 use core_engine::tekufa::{tekufa_civil, Season};
@@ -98,6 +100,22 @@ fn rows() -> Vec<(String, String)> {
                 fraction: 0.25,
                 start: Bound::Netz,
                 end: Bound::Shkia,
+            },
+        ),
+        // ADR core-domain/0021: literal-72-min MGA sof-zman-shma (proportional day bounded by
+        // netz−72 / shkia+72 fixed clock minutes — the OffsetMinutes bound).
+        (
+            "shma_mga72min",
+            ReadSpec::Proportional {
+                fraction: 0.25,
+                start: Bound::OffsetMinutes {
+                    base: PrimBound::Netz,
+                    offset_min: -72.0,
+                },
+                end: Bound::OffsetMinutes {
+                    base: PrimBound::Shkia,
+                    offset_min: 72.0,
+                },
             },
         ),
     ];
