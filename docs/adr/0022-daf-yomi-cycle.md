@@ -25,11 +25,11 @@ Berachos 2**. Day-in-cycle `= (rd − epoch).rem_euclid(2711)`, walked through t
 Vilna-Shas pagination — applied as **display offsets** (+21 / +24 / +32). Returns `{masechta: u8 (0..39),
 daf: u16}`.
 
-**Scope = the modern table** (Yerushalmi Shekalim = 22 daf, in force since the 8th cycle, 1975-06-24).
-`rem_euclid` makes it correct for any date from 1975-06-24 onward — all the device ever shows (present +
-future). Pre-1975 cycles (13-daf Shekalim) are **out of scope** and would compute wrong; the device never
-displays them. (KosherJava's 1923 epoch + the pre-1975 branch are deliberately *not* ported — unneeded
-complexity for a present/future board.)
+**Full-era coverage (both Shekalim regimes).** From the 8th cycle (1975-06-24) Yerushalmi Shekalim is 22
+daf (cycle = 2711); cycles 1–7 (from 1923-09-11) used 13 daf (cycle = 2702). Both are clean cycle
+boundaries, so `daf_yomi` picks `(epoch, shekalim_last)` by era — modern (2020-01-05 epoch, 22) for
+`rd ≥ 1975-06-24`, historical (1923-09-11 epoch, 13) otherwise — and `rem_euclid` resolves any date in
+that era. Correct for the entire daf-yomi era (1923-09-11 onward), matching KosherJava.
 
 ## Validation
 
@@ -63,6 +63,5 @@ every shift branch (Fri/Sun for Shoah; Thu/Fri/Sun for Zikaron; unshifted years)
 
 ## Open / not addressed
 
-- Pre-cycle-8 (pre-1975) dates compute wrong by design (out of scope).
 - Daf-Yomi *Yerushalmi* and other learning cycles (Mishna Yomi, Nach Yomi) — not built; same pattern if
   ever needed.

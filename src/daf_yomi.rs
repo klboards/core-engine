@@ -33,13 +33,33 @@ pub struct DafYomi {
 }
 
 /// The Bavli daf-yomi page for the civil day `rd` (ADR core-domain/0022). Deterministic, integer-only.
+/// Correct for the **entire** daf-yomi era (cycle 1, 1923-09-11, onward): before the 8th cycle
+/// (1975-06-24) Yerushalmi Shekalim was 13 daf (cycle = 2702 days); from the 8th cycle it is 22 (cycle =
+/// 2711). The two eras are clean cycle boundaries, so each resolves by its own epoch + table.
 pub fn daf_yomi(rd: RataDie) -> DafYomi {
-    let epoch = fixed_from_gregorian(2020, 1, 5).0;
-    // 0-based day within the current cycle. rem_euclid handles dates before the epoch too (periodic).
-    let mut n = (rd.0 - epoch).rem_euclid(DAF_YOMI_CYCLE_DAYS);
+    // The 8th-cycle start, when Shekalim moved 13 → 22 daf.
+    let shekalim_change = fixed_from_gregorian(1975, 6, 24).0;
+    let (epoch, shekalim_last) = if rd.0 >= shekalim_change {
+        (fixed_from_gregorian(2020, 1, 5).0, 22u16) // modern: cycle-14 epoch, Shekalim 22
+    } else {
+        (fixed_from_gregorian(1923, 9, 11).0, 13u16) // historical: cycle-1 epoch, Shekalim 13
+    };
+    // Per-masechta last-daf with the era's Shekalim (index 4) substituted; cycle = ∑(last−1).
+    let last_of = |i: usize| -> u16 {
+        if i == 4 {
+            shekalim_last
+        } else {
+            MASECHTA_LAST_DAF[i]
+        }
+    };
+    let cycle: i64 = (0..MASECHTA_LAST_DAF.len())
+        .map(|i| last_of(i) as i64 - 1)
+        .sum();
+    // 0-based day within the cycle. rem_euclid handles dates before the epoch too (periodic).
+    let mut n = (rd.0 - epoch).rem_euclid(cycle);
     let mut i = 0usize;
     while i < MASECHTA_LAST_DAF.len() {
-        let days = MASECHTA_LAST_DAF[i] as i64 - 1; // learned daf 2..=last ⇒ last-1 days
+        let days = last_of(i) as i64 - 1; // learned daf 2..=last ⇒ last-1 days
         if n < days {
             // Internal daf = 2 + offset into the masechta; the Meilah-block masechtos continue Meilah's
             // pagination, so their *displayed* daf is shifted (Kinnim +21, Tamid +24, Middos +32).
