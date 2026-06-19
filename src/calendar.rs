@@ -552,3 +552,94 @@ pub fn yahrzeit(death: HebrewDate, target_year: i32, rule: AdarAnniversaryRule) 
         day,
     })
 }
+
+/// Sefiras-haomer day count (1..=49) on the Hebrew `date`, or `None` outside the omer. Day 1 is 16
+/// Nisan (the night after the first day of Pesach) through day 49 = 5 Sivan; realm-invariant. A board
+/// calendar object (ADR core-domain/0022); offline integer arithmetic.
+pub fn omer_day(date: HebrewDate) -> Option<u16> {
+    let start = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 1,
+        day: 16,
+    })
+    .0;
+    let n = fixed_from_hebrew(date).0 - start;
+    if (0..49).contains(&n) {
+        Some((n + 1) as u16)
+    } else {
+        None
+    }
+}
+
+// ── Modern Israeli national days (ADR core-domain/0022). Fixed Hebrew dates whose OBSERVANCE is shifted
+// off the nominal day by the Knesset rules to avoid Shabbat desecration. Realm/community opt-in — a
+// board surfaces these only for communities that observe them; the arithmetic itself is realm-free.
+// Weekday encoding (weekday_from_fixed = amod(rd,7)): Sun=0, Mon=1 … Thu=4, Fri=5, Sat=6.
+
+/// A modern Israeli national day.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum IsraeliDay {
+    /// Yom HaShoah — Holocaust Remembrance (nominal 27 Nisan).
+    YomHaShoah,
+    /// Yom HaZikaron — Memorial Day (nominal 4 Iyar).
+    YomHaZikaron,
+    /// Yom HaAtzmaut — Independence Day (the day after Yom HaZikaron).
+    YomHaAtzmaut,
+    /// Yom Yerushalayim — Jerusalem Day (28 Iyar, unshifted).
+    YomYerushalayim,
+}
+
+/// Observed RataDie of Yom HaShoah in `year` (nominal 27 Nisan): Friday → −1 (Thursday); Sunday → +1
+/// (Monday); else unchanged.
+fn yom_hashoah_observed(year: i32) -> RataDie {
+    let base = fixed_from_hebrew(HebrewDate {
+        year,
+        month: 1,
+        day: 27,
+    });
+    match weekday_from_fixed(base) {
+        5 => RataDie(base.0 - 1), // Friday → Thursday
+        0 => RataDie(base.0 + 1), // Sunday → Monday
+        _ => base,
+    }
+}
+
+/// Observed RataDie of Yom HaZikaron in `year` (nominal 4 Iyar): Thursday → −1, Friday → −2 (both to
+/// Wednesday), Sunday → +1 (Monday); else unchanged. Yom HaAtzmaut is always the following day.
+fn yom_hazikaron_observed(year: i32) -> RataDie {
+    let base = fixed_from_hebrew(HebrewDate {
+        year,
+        month: 2,
+        day: 4,
+    });
+    match weekday_from_fixed(base) {
+        4 => RataDie(base.0 - 1), // Thursday → Wednesday
+        5 => RataDie(base.0 - 2), // Friday → Wednesday
+        0 => RataDie(base.0 + 1), // Sunday → Monday
+        _ => base,
+    }
+}
+
+/// The Israeli national day observed on `date`, if any — the Knesset Shabbat-shift applied. Opt-in per
+/// community (a board surfaces it only where observed); the computation is realm-independent.
+pub fn israeli_national_day(date: HebrewDate) -> Option<IsraeliDay> {
+    let rd = fixed_from_hebrew(date);
+    let zikaron = yom_hazikaron_observed(date.year);
+    if rd == yom_hashoah_observed(date.year) {
+        Some(IsraeliDay::YomHaShoah)
+    } else if rd == zikaron {
+        Some(IsraeliDay::YomHaZikaron)
+    } else if rd.0 == zikaron.0 + 1 {
+        Some(IsraeliDay::YomHaAtzmaut)
+    } else if rd
+        == fixed_from_hebrew(HebrewDate {
+            year: date.year,
+            month: 2,
+            day: 28,
+        })
+    {
+        Some(IsraeliDay::YomYerushalayim)
+    } else {
+        None
+    }
+}

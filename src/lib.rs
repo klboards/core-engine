@@ -20,6 +20,7 @@
 
 pub mod calendar;
 pub mod couplings;
+pub mod daf_yomi;
 pub mod events;
 pub mod ffi;
 pub mod geometry;

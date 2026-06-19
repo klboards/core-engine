@@ -342,9 +342,12 @@ fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f
     match bound {
         Bound::Netz => prim_bound_jd(site, ref_jd, PrimBound::Netz, optics),
         Bound::Shkia => prim_bound_jd(site, ref_jd, PrimBound::Shkia, optics),
-        Bound::Depression { angle_deg, dir } => {
-            prim_bound_jd(site, ref_jd, PrimBound::Depression { angle_deg, dir }, optics)
-        }
+        Bound::Depression { angle_deg, dir } => prim_bound_jd(
+            site,
+            ref_jd,
+            PrimBound::Depression { angle_deg, dir },
+            optics,
+        ),
         // Fixed clock-minute shift of a primitive bound (offset_min/1440 of a civil day). If the base
         // does-not-occur (polar), the shifted bound does-not-occur too — `?` propagates it.
         Bound::OffsetMinutes { base, offset_min } => {
