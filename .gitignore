@@ -14,3 +14,7 @@
 .DS_Store
 *.swp
 *~
+
+# Rust build artifacts (stack decided = Rust, ADR-0010). This checkout normally builds into the shared
+# CARGO_TARGET_DIR (forge/target), but a standalone `cargo` invocation falls back to ./target.
+/target
