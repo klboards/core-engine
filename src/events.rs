@@ -12,7 +12,7 @@
 use crate::geometry::{solar_altitude_deg, solar_azimuth_deg};
 use crate::lunar::{moon_altitude_deg, moon_semidiameter_deg};
 use crate::optics::{
-    horizon_apparent_target_deg, horizon_target_deg, semidiameter_deg, LimbReference,
+    horizon_apparent_target_deg, horizon_target_deg, semidiameter_deg, HorizonMode, LimbReference,
     RefractionModel,
 };
 use crate::params::Optics;
@@ -222,6 +222,23 @@ fn window(ref_jd: f64, dir: Direction) -> (f64, f64) {
 
 /// Resolve a read to a UT Julian Day under the given optics knobs, or `None` (does-not-occur).
 pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Option<f64> {
+    read_jd_h(site, ref_jd, spec, optics, None)
+}
+
+/// Horizon-aware core of [`read_jd`]. When `optics.horizon_mode == TerrainProfile` **and** a
+/// `horizon` profile is supplied, the netz/shkia `HorizonCrossing` resolves against the skyline — so the
+/// terrain (hanetz ha-nireh) basis reaches not just the displayed event but every read derived from
+/// netz/shkia: the `Proportional` day-bounds (sof-zman-shma GRA etc.) and the seasonal
+/// `FixedMinuteOffset` span. `horizon = None` (or any non-terrain mode) is **bit-identical** to the
+/// pre-change scalar path. The mishor-vs-visible-vs-terrain basis stays a single `horizon_mode`
+/// parameter, applied consistently (the sources say only "הנץ החמה"; the basis is a posek/preset choice).
+fn read_jd_h(
+    site: &Site,
+    ref_jd: f64,
+    spec: ReadSpec,
+    optics: &Optics,
+    horizon: Option<&HorizonProfile>,
+) -> Option<f64> {
     match spec {
         ReadSpec::DepressionAngle { angle_deg, dir } => {
             let (lo, hi) = window(ref_jd, dir);
@@ -236,6 +253,14 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
             )
         }
         ReadSpec::HorizonCrossing { dir } => {
+            // The one behavioural change: a bound terrain skyline, when selected, governs netz/shkia
+            // everywhere (event AND proportional bound) — not just the displayed event. Falls through to
+            // the byte-frozen scalar read for Mishor/Visible, or TerrainProfile with no profile bound.
+            if optics.horizon_mode == HorizonMode::TerrainProfile {
+                if let Some(hp) = horizon {
+                    return terrain_crossing_jd(site, ref_jd, dir, optics, hp);
+                }
+            }
             let (lo, hi) = window(ref_jd, dir);
             let target = horizon_apparent_target_deg(optics.horizon_mode, site.elev_m, optics.limb);
             find_crossing(
@@ -249,21 +274,23 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
             )
         }
         ReadSpec::ExtremumMidpoint => {
-            let netz = read_jd(
+            let netz = read_jd_h(
                 site,
                 ref_jd,
                 ReadSpec::HorizonCrossing {
                     dir: Direction::Rising,
                 },
                 optics,
+                horizon,
             )?;
-            let shkia = read_jd(
+            let shkia = read_jd_h(
                 site,
                 ref_jd,
                 ReadSpec::HorizonCrossing {
                     dir: Direction::Setting,
                 },
                 optics,
+                horizon,
             )?;
             Some(0.5 * (netz + shkia))
         }
@@ -272,8 +299,8 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
             start,
             end,
         } => {
-            let s = bound_jd(site, ref_jd, start, optics)?;
-            let e = bound_jd(site, ref_jd, end, optics)?;
+            let s = bound_jd(site, ref_jd, start, optics, horizon)?;
+            let e = bound_jd(site, ref_jd, end, optics, horizon)?;
             Some(s + fraction * (e - s))
         }
         ReadSpec::FixedMinuteOffset {
@@ -281,13 +308,13 @@ pub fn read_jd(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> Opt
             offset_min,
             seasonal,
         } => {
-            let base_jd = bound_jd(site, ref_jd, base, optics)?;
+            let base_jd = bound_jd(site, ref_jd, base, optics, horizon)?;
             let offset_days = match seasonal {
                 // Fixed clock minutes: a literal slice of the 1440-minute civil day.
                 None => offset_min / 1440.0,
                 // Zmaniyos minutes: scaled by that day's sha'ah zmanit (span / 12).
                 Some((start, end)) => {
-                    let span = proportional_span_days(site, ref_jd, start, end, optics)?;
+                    let span = proportional_span_days_h(site, ref_jd, start, end, optics, horizon)?;
                     offset_min / 60.0 * span / 12.0
                 }
             };
@@ -305,53 +332,83 @@ pub fn proportional_span_days(
     end: Bound,
     optics: &Optics,
 ) -> Option<f64> {
-    let s = bound_jd(site, ref_jd, start, optics)?;
-    let e = bound_jd(site, ref_jd, end, optics)?;
+    proportional_span_days_h(site, ref_jd, start, end, optics, None)
+}
+
+/// Horizon-aware core of [`proportional_span_days`] — `horizon = None` is bit-identical to the scalar path.
+fn proportional_span_days_h(
+    site: &Site,
+    ref_jd: f64,
+    start: Bound,
+    end: Bound,
+    optics: &Optics,
+    horizon: Option<&HorizonProfile>,
+) -> Option<f64> {
+    let s = bound_jd(site, ref_jd, start, optics, horizon)?;
+    let e = bound_jd(site, ref_jd, end, optics, horizon)?;
     Some(e - s)
 }
 
-/// Resolve a *primitive* bound to a Julian Day (no minute offset).
-fn prim_bound_jd(site: &Site, ref_jd: f64, prim: PrimBound, optics: &Optics) -> Option<f64> {
+/// Resolve a *primitive* bound to a Julian Day (no minute offset). `horizon` is threaded so a
+/// `TerrainProfile` netz/shkia bound resolves against the skyline (via [`read_jd_h`]); ignored for
+/// `Depression` bounds (independent of the horizon).
+fn prim_bound_jd(
+    site: &Site,
+    ref_jd: f64,
+    prim: PrimBound,
+    optics: &Optics,
+    horizon: Option<&HorizonProfile>,
+) -> Option<f64> {
     match prim {
-        PrimBound::Netz => read_jd(
+        PrimBound::Netz => read_jd_h(
             site,
             ref_jd,
             ReadSpec::HorizonCrossing {
                 dir: Direction::Rising,
             },
             optics,
+            horizon,
         ),
-        PrimBound::Shkia => read_jd(
+        PrimBound::Shkia => read_jd_h(
             site,
             ref_jd,
             ReadSpec::HorizonCrossing {
                 dir: Direction::Setting,
             },
             optics,
+            horizon,
         ),
-        PrimBound::Depression { angle_deg, dir } => read_jd(
+        PrimBound::Depression { angle_deg, dir } => read_jd_h(
             site,
             ref_jd,
             ReadSpec::DepressionAngle { angle_deg, dir },
             optics,
+            horizon,
         ),
     }
 }
 
-fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f64> {
+fn bound_jd(
+    site: &Site,
+    ref_jd: f64,
+    bound: Bound,
+    optics: &Optics,
+    horizon: Option<&HorizonProfile>,
+) -> Option<f64> {
     match bound {
-        Bound::Netz => prim_bound_jd(site, ref_jd, PrimBound::Netz, optics),
-        Bound::Shkia => prim_bound_jd(site, ref_jd, PrimBound::Shkia, optics),
+        Bound::Netz => prim_bound_jd(site, ref_jd, PrimBound::Netz, optics, horizon),
+        Bound::Shkia => prim_bound_jd(site, ref_jd, PrimBound::Shkia, optics, horizon),
         Bound::Depression { angle_deg, dir } => prim_bound_jd(
             site,
             ref_jd,
             PrimBound::Depression { angle_deg, dir },
             optics,
+            horizon,
         ),
         // Fixed clock-minute shift of a primitive bound (offset_min/1440 of a civil day). If the base
         // does-not-occur (polar), the shifted bound does-not-occur too — `?` propagates it.
         Bound::OffsetMinutes { base, offset_min } => {
-            Some(prim_bound_jd(site, ref_jd, base, optics)? + offset_min / 1440.0)
+            Some(prim_bound_jd(site, ref_jd, base, optics, horizon)? + offset_min / 1440.0)
         }
     }
 }
@@ -360,6 +417,22 @@ fn bound_jd(site: &Site, ref_jd: f64, bound: Bound, optics: &Optics) -> Option<f
 #[inline]
 pub fn read_instant(site: &Site, ref_jd: f64, spec: ReadSpec, optics: &Optics) -> ZmanResult {
     read_jd(site, ref_jd, spec, optics).map(AbsoluteInstant::from_julian_day)
+}
+
+/// Like [`read_instant`], but a bound terrain `horizon` profile (with `optics.horizon_mode ==
+/// TerrainProfile`) governs netz/shkia for the event **and** every read derived from them — the
+/// consistent visible-sunrise path (the moat reaching the proportional deadlines, not just the event).
+/// `horizon = None` is identical to [`read_instant`]. The cloud + device dispatchers call this for all
+/// reads so cloud == device (org/0006 compose==recompute).
+#[inline]
+pub fn read_instant_with_horizon(
+    site: &Site,
+    ref_jd: f64,
+    spec: ReadSpec,
+    optics: &Optics,
+    horizon: Option<&HorizonProfile>,
+) -> ZmanResult {
+    read_jd_h(site, ref_jd, spec, optics, horizon).map(AbsoluteInstant::from_julian_day)
 }
 
 /// Moonrise/moonset (F2) within the civil day starting at `day_start_jd` (the UT Julian Day of the
@@ -408,6 +481,19 @@ pub fn terrain_horizon_crossing(
     optics: &Optics,
     profile: &HorizonProfile,
 ) -> ZmanResult {
+    terrain_crossing_jd(site, ref_jd, dir, optics, profile).map(AbsoluteInstant::from_julian_day)
+}
+
+/// JD-returning core of [`terrain_horizon_crossing`], shared with the proportional bound path
+/// ([`read_jd_h`]) so a `TerrainProfile` netz/shkia **bound** resolves against the skyline with no lossy
+/// JD→instant→JD round-trip. Self-contained (does not touch the byte-frozen scalar [`find_crossing`]).
+fn terrain_crossing_jd(
+    site: &Site,
+    ref_jd: f64,
+    dir: Direction,
+    optics: &Optics,
+    profile: &HorizonProfile,
+) -> Option<f64> {
     let (lo, hi) = window(ref_jd, dir);
     let refr = optics.horizon_refraction;
     let sd = semidiameter_deg();
@@ -445,7 +531,7 @@ pub fn terrain_horizon_crossing(
                     }
                     k += 1;
                 }
-                return Some(AbsoluteInstant::from_julian_day(0.5 * (a + b)));
+                return Some(0.5 * (a + b));
             }
         }
         prev_t = t;

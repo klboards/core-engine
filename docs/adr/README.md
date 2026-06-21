@@ -35,6 +35,7 @@ ADR-0001 and ADR-0002 **ratify the already-settled first-order model** so the de
 | [0020](0020-read-spec-vocabulary-complete.md) | Read-spec vocabulary complete: limb reference + fixed-minute-offset + read-spec decode | Closes /0019's three first-order gaps; catalog stays second-order |
 | [0021](0021-fixed-minute-proportional-day-bound.md) | Fixed-minute proportional-day bound (`Bound::OffsetMinutes`) — literal-72-min MGA day | Wire-additive (BoundWire tag 3); KosherJava-oracle 24/24; 659/659 determinism kept |
 | [0022](0022-daf-yomi-cycle.md) | Daf Yomi + Israeli national days (offline calendar facts) | Integer-only (no FP); Hebcal-oracle (daf 14/14 + Israeli-days 36/36 incl. Knesset shifts); index/enum, not names |
+| [0023](0023-terrain-consistent-proportional-day.md) | Terrain-consistent proportional day — `horizon_mode` governs sha'os-zmaniyos bounds, not just the event | Machlokes mishor-vs-visible → parameter applied consistently (`read_instant_with_horizon`); no wire change; Mishor/Visible byte-identical, 659/659 determinism kept; closes /0017 §Open horizon↔proportional gap |
 
 ## Ratified decisions handoff (decision + rationale, for Claude Code)
 
