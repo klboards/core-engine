@@ -14,8 +14,12 @@ crate-type = ["rlib", "cdylib"]
 # `std` exists ONLY as a test-ergonomics shim so the std integration harness and the
 # freestanding wasm artifact share one crate. The canonical engine artifact builds
 # `--no-default-features` (true #![no_std], ADR core-domain/0010). Math is libm either way.
+# It also enables `minicbor/alloc` so the host `cargo test` build resolves ONE minicbor
+# (derive+alloc) for both the lib and the round-trip tests — without it, resolver-2 builds the lib
+# with `derive` and the test with `derive,alloc`, producing two `Encode` impls (a compile error). The
+# `--no-default-features` wasm artifact keeps `minicbor` at `derive` only, so it stays no-alloc.
 default = ["std"]
-std = []
+std = ["minicbor/alloc"]
 
 [dependencies]
 # Pure-Rust, no_std transcendental math. The determinism anchor of ADR core-domain/0010:
