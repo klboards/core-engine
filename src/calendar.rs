@@ -429,6 +429,177 @@ pub fn classify_day(date: HebrewDate, realm: Realm) -> DayClass {
     }
 }
 
+/// A specific moed (festival / fast / special day) identity — the fine-grained companion to
+/// [`DayClass`]'s six coarse flags, so a board can gate content on *which* chag it is (Chanukah vs
+/// Pesach vs a fast), not merely "Yom Tov". Structural tokens; localized names are downstream (the
+/// management/content layer). Pure F3 integer arithmetic — the reverse of [`classify_day`]'s predicates,
+/// with **no new astronomy and no correctness degree**. Mutually exclusive **by date** (one festival
+/// identity per day); co-holding periods (Sefiras HaOmer, the Three Weeks / Nine Days) are surfaced
+/// separately by the caller, not here. Realm gates only the diaspora-second-day identities.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(missing_docs)]
+pub enum Moed {
+    ErevRoshHashana,
+    RoshHashana,
+    TzomGedaliah,
+    ErevYomKippur,
+    YomKippur,
+    ErevSukkos,
+    Sukkos,
+    CholHamoedSukkos,
+    HoshanaRabba,
+    ShminiAtzeres,
+    SimchasTorah,
+    Chanukah,
+    AsaraBeteves,
+    TuBishvat,
+    TaanisEsther,
+    Purim,
+    ShushanPurim,
+    ErevPesach,
+    Pesach,
+    CholHamoedPesach,
+    PesachSheni,
+    LagBaomer,
+    ErevShavuos,
+    Shavuos,
+    TzomTammuz,
+    ErevTishaBav,
+    TishaBav,
+    TuBeav,
+}
+
+/// The specific [`Moed`] identity of the Hebrew day at `date` under `realm`, or `None` for an ordinary
+/// day. One identity per date (Yom Tov days map to their chag; Chol HaMoed to the chag's CH"M; the
+/// erev-of-chag and the fasts to themselves), reusing the same predicates as [`classify_day`] so the two
+/// never drift. Realm gates the diaspora-only second-day identities (Simchas Torah, Pesach 8th).
+pub fn moed_of(date: HebrewDate, realm: Realm) -> Option<Moed> {
+    let rd = fixed_from_hebrew(date);
+    let (m, d) = (date.month, date.day);
+    let last = last_month_of_year(date.year);
+    let diaspora = matches!(realm, Realm::Diaspora);
+
+    // Melacha-forbidden festival days → their chag identity (mirrors is_yom_tov_md's (month,day) set).
+    if is_yom_tov_md(m, d, realm) {
+        return Some(match (m, d) {
+            (7, 1) | (7, 2) => Moed::RoshHashana,
+            (7, 10) => Moed::YomKippur,
+            (7, 15) | (7, 16) => Moed::Sukkos,
+            (7, 22) => Moed::ShminiAtzeres, // in EY this day is also Simchas Torah (combined)
+            (7, 23) => Moed::SimchasTorah,  // diaspora only (is_yom_tov_md gates it on realm)
+            (1, 15) | (1, 16) | (1, 21) | (1, 22) => Moed::Pesach,
+            (3, 6) | (3, 7) => Moed::Shavuos,
+            _ => return None, // unreachable given is_yom_tov_md's set
+        });
+    }
+    // Hoshana Rabba (21 Tishrei) is a distinct day within CH"M Sukkos — check before the CH"M fallthrough.
+    if m == 7 && d == 21 {
+        return Some(Moed::HoshanaRabba);
+    }
+    if is_chol_hamoed_md(m, d, diaspora) {
+        return Some(if m == 7 {
+            Moed::CholHamoedSukkos
+        } else {
+            Moed::CholHamoedPesach
+        });
+    }
+    // Erev-of-chag (more specific than DayClass::erev).
+    match (m, d) {
+        (6, 29) => return Some(Moed::ErevRoshHashana), // 29 Elul
+        (7, 9) => return Some(Moed::ErevYomKippur),
+        (7, 14) => return Some(Moed::ErevSukkos),
+        (1, 14) => return Some(Moed::ErevPesach),
+        (3, 5) => return Some(Moed::ErevShavuos),
+        _ => {}
+    }
+    // Public fasts (observed, with the same deferral classify_day uses).
+    if rd == fast_observed(date.year, 7, 3, true) {
+        return Some(Moed::TzomGedaliah);
+    }
+    if m == 10 && d == 10 {
+        return Some(Moed::AsaraBeteves); // never deferred
+    }
+    if rd == fast_observed(date.year, last, 13, false) {
+        return Some(Moed::TaanisEsther);
+    }
+    if rd == fast_observed(date.year, 4, 17, true) {
+        return Some(Moed::TzomTammuz);
+    }
+    // Tisha B'Av + its erev (both relative to the OBSERVED fast, so a nidcheh year shifts them together).
+    let tisha_bav = fast_observed(date.year, 5, 9, true);
+    if rd == tisha_bav {
+        return Some(Moed::TishaBav);
+    }
+    if rd.0 == tisha_bav.0 - 1 {
+        return Some(Moed::ErevTishaBav);
+    }
+    // Chanukah spans the Kislev→Tevet boundary (8 days from 25 Kislev); Kislev 29/30 handled by RD math.
+    let chanukah_start = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 9,
+        day: 25,
+    })
+    .0;
+    if (0..8).contains(&(rd.0 - chanukah_start)) {
+        return Some(Moed::Chanukah);
+    }
+    // Purim / Shushan Purim: 14 / 15 of the last month (Adar, or Adar II in a leap year).
+    if m == last && d == 14 {
+        return Some(Moed::Purim);
+    }
+    if m == last && d == 15 {
+        return Some(Moed::ShushanPurim);
+    }
+    // Other rabbinic / minor named days (fixed month+day).
+    match (m, d) {
+        (11, 15) => return Some(Moed::TuBishvat), // 15 Shevat
+        (2, 14) => return Some(Moed::PesachSheni), // 14 Iyar
+        (2, 18) => return Some(Moed::LagBaomer),   // 18 Iyar
+        (5, 15) => return Some(Moed::TuBeav),      // 15 Av
+        _ => {}
+    }
+    None
+}
+
+/// True if `date` is within the **Three Weeks** mourning period (17 Tammuz … 9 Av, nominal). A
+/// co-holding period token (it overlaps the fasts at its endpoints); surfaced alongside a [`Moed`], not
+/// instead of one. Realm-invariant.
+pub fn in_three_weeks(date: HebrewDate) -> bool {
+    let rd = fixed_from_hebrew(date).0;
+    let start = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 4,
+        day: 17,
+    })
+    .0;
+    let end = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 5,
+        day: 9,
+    })
+    .0;
+    (start..=end).contains(&rd)
+}
+
+/// True if `date` is within the **Nine Days** (1 Av … 9 Av, nominal) — the stricter sub-period of the
+/// Three Weeks. Co-holding; surfaced alongside a [`Moed`].
+pub fn in_nine_days(date: HebrewDate) -> bool {
+    let rd = fixed_from_hebrew(date).0;
+    let start = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 5,
+        day: 1,
+    })
+    .0;
+    let end = fixed_from_hebrew(HebrewDate {
+        year: date.year,
+        month: 5,
+        day: 9,
+    })
+    .0;
+    (start..=end).contains(&rd)
+}
+
 // ── Molad (mean lunar conjunction) — the F3 deferral from ADR core-domain/0014, needed by F2's
 // Kiddush Levana. The molad is *calendar arithmetic* (the fixed mean conjunction), distinct from
 // the observed moon (F2 proper); it stays here in F3. Exact integer in the molad's own mean-time
