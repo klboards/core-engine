@@ -552,7 +552,7 @@ pub fn moed_of(date: HebrewDate, realm: Realm) -> Option<Moed> {
     }
     // Other rabbinic / minor named days (fixed month+day).
     match (m, d) {
-        (11, 15) => return Some(Moed::TuBishvat), // 15 Shevat
+        (11, 15) => return Some(Moed::TuBishvat),  // 15 Shevat
         (2, 14) => return Some(Moed::PesachSheni), // 14 Iyar
         (2, 18) => return Some(Moed::LagBaomer),   // 18 Iyar
         (5, 15) => return Some(Moed::TuBeav),      // 15 Av
