@@ -42,7 +42,7 @@ exact integer. `#![deny(unsafe_code)]` (the one C-ABI export in `ffi.rs` is the 
 freestanding WASM artifact coexist; the engine source uses only `core` + `libm`. Custom target dir:
 this checkout builds into `/home/brx/Benjwho/forge/target` (not `./target`).
 
-## Current status (as of ADR-0020)
+## Current status (as of ADR-0023)
 
 **F1 (solar) / F2 (lunar) / F3 (Hebrew calendar) + the four ADR-0001 couplings are COMPLETE and
 validated; the CBOR intake boundary + the TerrainProfile moat are BUILT (/0018); the first-order
@@ -56,8 +56,10 @@ CBOR read-spec decode, so any posek vector composes with no remaining first-orde
 
 - **Validated:** F1 golden 66/66 (Wolfram), F2 11/11, F3 38/38 (Wolfram+Hebcal+MyZmanim), tekufa/
   tal-u-matar 10/10, couplings 3/3, properties 10/10, fuzz (incl. decoder, no panic), regression
-  120/120, cross-engine 48/48 vs **KosherJava** (≈2.1 s), wire 7/7, read-vocab 4/4 (limb ordering +
-  fixed/seasonal offset; /0020), terrain differential, offline-autonomy.
+  132/132, cross-engine vs **KosherJava** 48/48 sunrise/sunset + 24/24 MGA-72 = 72 (≈2.1 s), wire 7/7,
+  read-vocab 5/5 (limb ordering + fixed/seasonal offset, /0020; + the /0021 MGA-72 identity), terrain
+  differential, offline-autonomy (the test spans 10 days over chag+Shabbat; the *certified* window N
+  remains an open decision).
 - **FP-determinism:** 659/659 exact native==wasm (the one-core-no-drift gate, /0010; +lower-limb netz
   + fixed/seasonal minute-offset float paths, /0020).
 - **Intake (/0018, /0020):** `wire::decode_parameter_vector` / `decode_horizon_profile` /
