@@ -4,7 +4,7 @@
     "klboards": {
       "source": {
         "source": "github",
-        "repo": "ybenjwho/klboards-klboards"
+        "repo": "klboards/klboards"
       }
     }
   },
