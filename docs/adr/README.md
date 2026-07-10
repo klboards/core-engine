@@ -1,7 +1,7 @@
 # core-engine — Architecture Decision Records
 
 > **Status: BINDING product-architecture decisions** for the klboards zmanim/calendar core
-> engine. Migrated here from the `klboards/klboards` meta-repo (org/0004 fulfilled); this
+> engine. Migrated here from the `ybenjwho/klboards-klboards` meta-repo (org/0004 fulfilled); this
 > repo is now their home. Org/infra ADRs live in the meta-repo's `docs/adr/`. Keep the
 > internal `0001–0007` numbering and cross-references intact.
 

@@ -1,7 +1,7 @@
 # core-engine
 
 The **deterministic zmanim/calendar core engine** for klboards — the anchor of the
-correctness side of the product (org/0004). A git submodule of the `klboards/klboards`
+correctness side of the product (org/0004). A git submodule of the `ybenjwho/klboards-klboards`
 meta-repo at `engine/core-engine`.
 
 ## Responsibility

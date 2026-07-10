@@ -26,7 +26,7 @@ All decisions live in [`docs/adr/`](docs/adr/) (ADRs 0001–0008; see the
 
 ## Part of klboards
 
-A git submodule of the [`klboards/klboards`](https://github.com/klboards/klboards) org meta-repo
+A git submodule of the [`ybenjwho/klboards-klboards`](https://github.com/ybenjwho/klboards-klboards) meta-repo
 at `engine/core-engine`. Org-wide conventions are inherited from the meta-repo and the
 `klboards-org` plugin; agent context is in [`CLAUDE.md`](CLAUDE.md).
 
