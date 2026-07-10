@@ -101,7 +101,7 @@ pub enum ObligationSense {
 /// The optics sub-vector consumed by the solar reads (ADR core-domain/0006/0013).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Optics {
-    /// Refraction model for the **horizon** event (netz/shkia). Default Saemundsson.
+    /// Refraction model for the **horizon** event (netz/shkia). Default `Bennett` (ADR /0013).
     pub horizon_refraction: RefractionModel,
     /// Refraction model for **depression** shitot. Default `None` (geometric — classical/halachic).
     pub depression_refraction: RefractionModel,
@@ -113,7 +113,7 @@ pub struct Optics {
 }
 
 impl Default for Optics {
-    /// The ratified defaults (ADR core-domain/0013): apparent horizon (Saemundsson + visible dip),
+    /// The ratified defaults (ADR core-domain/0013): apparent horizon (Bennett + visible dip),
     /// geometric depression. A community/posek may override any of these knobs.
     fn default() -> Self {
         Optics {

@@ -62,7 +62,8 @@ pub enum HorizonMode {
     Mishor,
     /// Visible horizon — geometric dip from observer elevation applied in-core (/0013).
     Visible,
-    /// Terrain skyline composed from a provisioned `(azimuth→angle)` profile (/0004). Not yet wired.
+    /// Terrain skyline composed from a provisioned `(azimuth→angle)` profile (/0004). Live via
+    /// `events::read_instant_with_horizon` when a `HorizonProfile` is supplied (/0018).
     TerrainProfile,
 }
 
@@ -113,7 +114,8 @@ pub fn geometric_dip_deg(elev_m: f64) -> f64 {
 }
 
 /// Horizon dip (degrees) selected by the mode — 0 for Mishor, the elevation dip otherwise.
-/// TerrainProfile falls back to the elevation dip until the /0004 profile path is wired.
+/// TerrainProfile falls back to the elevation dip ONLY on this scalar path (no profile supplied);
+/// when a `HorizonProfile` is given, `events::terrain_horizon_crossing` bypasses this fn entirely.
 #[inline]
 fn horizon_dip_deg(mode: HorizonMode, elev_m: f64) -> f64 {
     match mode {

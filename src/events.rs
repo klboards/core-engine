@@ -1,7 +1,8 @@
 //! The F1 read-spec union (ADR core-domain/0009): every zman is a typed *read* off the solar
 //! altitude curve. The read is resolved against an **effective altitude** = geometric + refraction,
 //! where the refraction model is a knob (ADR core-domain/0006/0013):
-//! - **netz/shkia** → apparent (Saemundsson) sun-centre at −(semidiameter + dip) per `HorizonMode`;
+//! - **netz/shkia** → apparent (Bennett, the ratified default) sun-centre at −(semidiameter + dip)
+//!   per `HorizonMode`;
 //! - **depression shitot** → geometric (refraction off, classical/halachic default).
 //!
 //! Reads are anchored to a caller-supplied UT reference Julian Day `ref_jd` (the harness derives it
